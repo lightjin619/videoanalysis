@@ -1,0 +1,2445 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>Academic Video HRV Tool – Video Preview + Dual Slider (seconds) + Absolute Rolling Windows + Playhead</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto;background:#0b1020;color:#e5e7eb;}
+  h1,h2,h3{margin:0}
+  button{cursor:pointer;border:none;border-radius:10px;padding:10px 14px;background:#4f7cff;color:white;}
+  .secondary{background:#1f2937}
+  .ghost{background:transparent;border:1px solid #1f2937;color:#e5e7eb}
+  .container{max-width:1100px;margin:auto;padding:40px}
+  .hidden{display:none}
+  .hint{color:#9ca3af;font-size:12px;margin-top:8px;line-height:1.5}
+  .muted{color:#9ca3af}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;}
+  .card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;}
+  .card:hover{border-color:#4f7cff}
+  .card h3{margin-bottom:6px}
+  .kv{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .tag{padding:6px 10px;border-radius:999px;border:1px solid #1f2937;background:#0b1226;color:#cbd5e1;font-size:12px}
+  .cardActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+  .btnSmall{padding:8px 10px;border-radius:10px;font-size:12px}
+
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center;}
+
+  .fake-video{background:#020617;border:1px solid #1f2937;border-radius:12px;height:280px;display:flex;align-items:center;justify-content:center;margin-top:14px;position:relative;overflow:hidden;}
+  .fake-video img{max-height:240px;opacity:.92;border-radius:10px;}
+  .fake-overlay{position:absolute;bottom:10px;left:10px;padding:6px 10px;border-radius:999px;background:rgba(15,23,42,.75);border:1px solid rgba(31,41,55,.9);color:#cbd5e1;font-size:12px;}
+
+  .windowBox{background:#020617;border:1px solid #1f2937;border-radius:12px;padding:14px 14px 12px;margin-top:14px;}
+  .windowTop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .pill{padding:6px 10px;border-radius:999px;border:1px solid #1f2937;background:#0f172a;color:#cbd5e1;font-size:12px;}
+  .dualSlider{position:relative;height:44px;margin-top:10px;}
+  .track{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:10px;border-radius:999px;background:#111827;border:1px solid #1f2937;overflow:hidden;}
+  .rangeHighlight{position:absolute;top:0;bottom:0;border-radius:999px;background:rgba(79,124,255,.65);}
+
+  /* Playhead (video current time cursor) */
+  .playhead{
+    position:absolute;
+    top:-8px;
+    width:2px;
+    height:26px;
+    background:rgba(251,191,36,0.95);
+    box-shadow:0 0 0 3px rgba(251,191,36,0.14);
+    border-radius:2px;
+    pointer-events:none;
+    display:none;
+  }
+  .playhead::after{
+    content:"";
+    position:absolute;
+    top:-6px;
+    left:50%;
+    transform:translateX(-50%);
+    width:0;height:0;
+    border-left:6px solid transparent;
+    border-right:6px solid transparent;
+    border-bottom:6px solid rgba(251,191,36,0.95);
+  }
+
+  .dualSlider input[type="range"]{position:absolute;left:0;right:0;top:0;bottom:0;width:100%;margin:0;background:transparent;pointer-events:none;-webkit-appearance:none;appearance:none;}
+  .dualSlider input[type="range"]::-webkit-slider-thumb{pointer-events:auto;-webkit-appearance:none;height:20px;width:20px;border-radius:50%;background:#e5e7eb;border:2px solid rgba(79,124,255,.95);box-shadow:0 0 0 4px rgba(79,124,255,.18);}
+  .dualSlider input[type="range"]::-moz-range-thumb{pointer-events:auto;height:20px;width:20px;border-radius:50%;background:#e5e7eb;border:2px solid rgba(79,124,255,.95);box-shadow:0 0 0 4px rgba(79,124,255,.18);}
+  .dualSlider input[type="range"]::-webkit-slider-runnable-track{height:10px;background:transparent;}
+  .dualSlider input[type="range"]::-moz-range-track{height:10px;background:transparent;}
+  .windowMeta{display:flex;justify-content:space-between;margin-top:8px;color:#9ca3af;font-size:12px;}
+  .metaRow{display:flex;gap:10px;margin-top:10px;color:#9ca3af;font-size:12px;flex-wrap:wrap;}
+  .metaRow span{padding:6px 10px;border-radius:10px;border:1px solid #1f2937;background:#0b1226;}
+
+  .banner{margin-top:14px;background:#0b1226;border:1px solid #1f2937;border-radius:12px;padding:12px;}
+  .banner .title{font-weight:700}
+  .banner .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+
+  .graphBox{background:#020617;border:1px solid #1f2937;border-radius:12px;padding:12px;margin-top:14px;}
+  .graphHeader{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  .graphHeader .title{font-weight:700}
+  canvas{width:100%;height:240px;display:block;margin-top:10px;border-radius:10px;background:#0b1226;border:1px solid rgba(31,41,55,.8);}
+
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;}
+  .tab{padding:8px 12px;border-radius:999px;border:1px solid #1f2937;background:#0b1226;color:#cbd5e1;font-size:12px;cursor:pointer;user-select:none;}
+  .tab.active{border-color:rgba(79,124,255,.85);box-shadow:0 0 0 3px rgba(79,124,255,.14);}
+
+  .metricsGrid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;margin-top:12px;}
+  .kpi{grid-column:span 3;border:1px solid #1f2937;border-radius:12px;background:#0b1226;padding:12px;}
+  .kpi .t{color:#9ca3af;font-size:12px;}
+  .kpi .v{margin-top:6px;font-weight:800;font-size:18px;letter-spacing:.2px;}
+  .kpi .s{margin-top:6px;color:#9ca3af;font-size:12px;}
+
+  .tableWrap{margin-top:12px;border:1px solid #1f2937;border-radius:12px;overflow:hidden;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{padding:10px 10px;border-bottom:1px solid rgba(31,41,55,.7);text-align:left;vertical-align:middle;}
+  th{background:#0f172a;color:#e5e7eb;}
+  td{color:#cbd5e1;}
+
+  select,input[type="number"]{padding:8px;border-radius:10px;background:#020617;color:#e5e7eb;border:1px solid #1f2937;}
+  .inlineControls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .ctrlLabel{color:#9ca3af;font-size:13px;min-width:120px}
+  .ctrlWrap{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .w240{width:240px}
+  .w160{width:160px}
+
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:999;}
+  .modal-box{background:#0f172a;padding:22px;border-radius:12px;width:min(920px, calc(100vw - 24px));border:1px solid #1f2937;max-height:85vh;overflow:auto;}
+  .modal-actions{margin-top:16px;text-align:right;display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
+  .modal.hidden{display:none !important;}
+
+  .formGrid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;margin-top:12px;}
+  .field{grid-column:span 6;}
+  .field.col12{grid-column:span 12;}
+  .field.col4{grid-column:span 4;}
+  .field.col3{grid-column:span 3;}
+  .field label{display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1;}
+  .req{color:#fca5a5;font-weight:700;font-size:12px}
+  .field input,.field textarea,.field select{
+    width:100%;padding:8px;margin-top:6px;border-radius:8px;border:1px solid #1f2937;background:#020617;color:white;
+  }
+  .field textarea{min-height:70px;resize:vertical;}
+  .sectionTitle{grid-column:span 12;margin-top:6px;padding-top:12px;border-top:1px dashed rgba(31,41,55,.7);font-weight:800;color:#e5e7eb;}
+  .sectionHint{grid-column:span 12;color:#9ca3af;font-size:12px;margin-top:-6px}
+
+  /* Rolling timeline bar */
+  .timeline{
+    position:relative;
+    height:12px;
+    background:#020617;
+    border:1px solid #1f2937;
+    border-radius:999px;
+    overflow:hidden;
+    width:160px;
+  }
+  .timeline-window{
+    position:absolute; top:0; bottom:0;
+    background:linear-gradient(90deg, rgba(79,124,255,0.85), rgba(79,124,255,0.45));
+    border-radius:999px;
+  }
+
+  @media (max-width: 980px){
+    .kpi{grid-column:span 6;}
+    .field,.field.col12,.field.col4,.field.col3{grid-column:span 12;}
+    .w240,.w160{width:100%}
+    .timeline{width:120px}
+  }
+</style>
+</head>
+
+<body>
+
+<section id="welcome" class="container">
+  <h1>Welcome</h1>
+  <p style="margin:12px 0 28px;color:#9ca3af">
+    This demo walks through a research-style video HRV analysis workflow.
+  </p>
+  <div class="toolbar">
+    <button onclick="go('landing')">Start</button>
+  </div>
+</section>
+<section id="landing" class="container hidden">
+  <h1>Video-based HRV Analysis Tool</h1>
+  <p style="margin:12px 0 28px;color:#9ca3af">
+    Academic UI workflow mockup for video-based HRV analysis. (Parent Project to Video Projects)
+  </p>
+  <button onclick="go('parents')">Open Projects</button>
+</section>
+
+<!-- =========================
+     PARENT PROJECTS
+========================= -->
+<section id="parents" class="container hidden">
+  <h2>Parent Projects</h2>
+  <p style="color:#9ca3af;margin-bottom:16px">Create, edit, and manage parent projects (study-level).</p>
+  <button onclick="openParentModalForCreate()">+ Create Parent Project</button>
+  <div id="parentGrid" class="grid" style="margin-top:20px"></div>
+</section>
+
+<!-- =========================
+     CHILD PROJECTS (VIDEO PROJECTS)
+========================= -->
+<section id="children" class="container hidden">
+  <h2 id="childrenTitle">Video Projects</h2>
+
+  <div id="parentBanner" class="banner">
+    <div class="title">Parent Project Metadata</div>
+    <div class="row" id="parentChips"></div>
+    <div class="hint" style="margin-top:10px">
+      When creating a child (video) project, <b>IRB / Date / Time</b> are auto-filled from parent metadata.
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button onclick="openChildModalForCreate()">+ Create Video Project</button>
+    <button class="secondary" onclick="go('parents')">Back to Parents</button>
+  </div>
+
+  <div id="childGrid" class="grid" style="margin-top:20px"></div>
+
+  <div class="graphBox" style="margin-top:20px">
+    <div class="graphHeader">
+      <div class="title">Group Statistics Across Analyzed Video Projects</div>
+      <div class="muted" id="groupDataInfo" style="font-size:12px">No analysis data loaded</div>
+    </div>
+    <div class="inlineControls">
+      <div class="ctrlWrap">
+        <div class="ctrlLabel">Group By</div>
+        <select id="groupBySel" class="w240">
+          <option value="protocol">Protocol</option>
+          <option value="device">Device</option>
+          <option value="operator">Operator</option>
+          <option value="site">Site</option>
+          <option value="person">Analyzed Person</option>
+          <option value="sessionDate">Session Date</option>
+        </select>
+      </div>
+      <div class="ctrlWrap">
+        <div class="ctrlLabel">Metric</div>
+        <select id="groupMetricSel" class="w240">
+          <option value="meanHR">Mean HR</option>
+          <option value="meanIBI">Mean IBI</option>
+          <option value="sdnn">SDNN</option>
+          <option value="rmssd">RMSSD</option>
+          <option value="pnn50">pNN50</option>
+          <option value="lfhf">LF/HF</option>
+          <option value="lf">LF Power</option>
+          <option value="hf">HF Power</option>
+        </select>
+      </div>
+      <div class="ctrlWrap">
+        <div class="ctrlLabel">Test</div>
+        <select id="groupTestSel" class="w240">
+          <option value="ttest">Welch t-test (2 groups)</option>
+          <option value="anova">One-way ANOVA (2+ groups)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="toolbar" style="margin-top:10px">
+      <button class="secondary" onclick="loadAnalyzedProjectData()">Load analyzed data</button>
+      <button onclick="runGroupStatistics()">Run group test</button>
+      <div class="hint" id="groupTestSummary" style="margin:0">Load analyzed data first.</div>
+    </div>
+
+    <div class="tableWrap" style="margin-top:10px">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:100px">Group</th>
+            <th style="width:80px">n</th>
+            <th style="width:140px">Mean</th>
+            <th style="width:140px">SD</th>
+            <th style="width:120px">Min</th>
+            <th style="width:120px">Max</th>
+            <th>Projects</th>
+          </tr>
+        </thead>
+        <tbody id="groupStatsBody">
+          <tr><td colspan="7" class="muted">No analyzed video project data yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- =========================
+     WORKSPACE
+========================= -->
+<section id="workspace" class="container hidden">
+  <h2 id="workspaceTitle"></h2>
+
+  <div id="metaBanner" class="banner hidden">
+    <div class="title">Project Metadata</div>
+    <div class="row" id="metaChips"></div>
+    <div class="hint" style="margin-top:10px">Nested JSON metadata summary (mock).</div>
+  </div>
+
+  <p class="hint">Workflow mock: load video, set interval, analyze, and review results.</p>
+
+  <!-- Select video -->
+  <input id="videoFileInput" type="file" accept="video/*" class="hidden"/>
+
+  <div class="toolbar">
+    <button class="secondary" onclick="document.getElementById('videoFileInput').click()">
+      Load Video
+    </button>
+    <button onclick="openPersonModal()">Run Analysis</button>
+    <button class="secondary" onclick="go('children')">Back</button>
+  </div>
+
+  <!-- Thumbnail -->
+  <div class="fake-video" style="margin-top:14px">
+    <img id="videoThumb" alt="video thumbnail" style="display:none; max-height:240px; border-radius:10px;"/>
+    <div id="thumbPlaceholder" class="muted" style="text-align:center;padding:18px">
+      No video loaded (thumbnail will appear here)
+    </div>
+    <div id="videoLabel" class="fake-overlay">No video loaded</div>
+  </div>
+
+  <!-- Video preview -->
+  <div class="graphBox" style="margin-top:12px">
+    <div class="graphHeader">
+      <div class="title">Video Preview</div>
+      <div class="muted" style="font-size:12px">controls enabled</div>
+    </div>
+    <video id="previewVideo" controls playsinline
+           style="width:100%; max-height:360px; border-radius:10px; background:#0b1226; border:1px solid rgba(31,41,55,.8);"></video>
+    <div class="hint">Local files are processed in-browser only (no server upload).</div>
+  </div>
+
+  <div class="windowBox">
+    <div class="windowTop">
+      <div style="font-weight:700">Analysis Interval Selection (Dual Handle, seconds)</div>
+      <div class="pill">
+        <span id="startSec">0.0</span>s (<span id="startPct">0</span>%) ~
+        <span id="endSec">0.0</span>s (<span id="endPct">100</span>%)
+      </div>
+    </div>
+
+    <div class="dualSlider">
+      <div class="track">
+        <div id="highlight" class="rangeHighlight"></div>
+        <div id="playhead" class="playhead"></div>
+      </div>
+      <input id="rangeMin" type="range" min="0" max="60" value="0" step="0.1" />
+      <input id="rangeMax" type="range" min="0" max="60" value="60" step="0.1" />
+    </div>
+
+    <div class="windowMeta">
+      <span id="minTick">0.0s</span>
+      <span id="maxTick">60.0s</span>
+    </div>
+
+    <div class="metaRow">
+      <span>Start: <b id="startLabel">0.0s</b></span>
+      <span>End: <b id="endLabel">60.0s</b></span>
+      <span>Window: <b id="winLabel">60.0s</b></span>
+    </div>
+
+    <div class="hint" style="margin-top:10px">
+      The dual slider is synchronized to video <b>duration (sec)</b>. In results, rolling window time is shown in <b>absolute video time</b>.
+    </div>
+  </div>
+
+  <div id="analysisGraph" class="graphBox hidden">
+    <div class="graphHeader">
+      <div class="title">Analysis Preview (Mock Time-series)</div>
+      <div class="muted" style="font-size:12px">IBI/HR preview</div>
+    </div>
+    <canvas id="analysisCanvas" width="1000" height="240"></canvas>
+    <div class="hint">Mock-data time-series preview (not measured from real signal).</div>
+  </div>
+</section>
+
+<section id="results" class="container hidden">
+  <h2>Analysis Results</h2>
+  <p class="hint">
+    Rolling window segmentation is based on <b>Window (sec)</b> and <b>Step (sec)</b>.
+    Time Range in the segment table uses <b>absolute video timestamps (sec)</b>.
+  </p>
+
+  <div class="card" style="margin-top:14px">
+    <h3>Analysis Settings</h3>
+
+    <div class="inlineControls">
+      <div class="ctrlWrap">
+        <div class="ctrlLabel">Window Length</div>
+        <select id="windowSel" class="w240">
+          <option value="30">30 sec</option>
+          <option value="60">60 sec</option>
+        </select>
+      </div>
+
+      <div class="ctrlWrap">
+        <div class="ctrlLabel">Step (sec)</div>
+        <input id="stepSecInput" class="w160" type="number" min="1" max="30" step="1" value="1"/>
+      </div>
+
+      <div class="ctrlWrap">
+        <div class="ctrlLabel">Statistics</div>
+        <select id="statSel" class="w240">
+          <option value="mean">Mean / SD</option>
+          <option value="ttest">t-test</option>
+          <option value="anova">ANOVA</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="hint" style="margin-top:12px">
+      Display limit: <b>30 rows</b> for readability. CSV export also contains the displayed 30 rows.
+    </div>
+  </div>
+
+  <div class="graphBox">
+    <div class="graphHeader">
+      <div class="title" id="resultTitle"></div>
+      <div class="muted" id="resultLegend" style="font-size:12px"></div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="ts" onclick="setTab('ts')">Time-series</div>
+      <div class="tab" data-tab="poincare" onclick="setTab('poincare')">Poincaré</div>
+      <div class="tab" data-tab="psd" onclick="setTab('psd')">PSD</div>
+      <div style="flex:1"></div>
+      <button id="psdZoomBtn" class="ghost hidden" onclick="togglePSDZoom()">Zoom</button>
+    </div>
+
+    <canvas id="resultCanvas" width="1000" height="240"></canvas>
+    <div class="hint" id="tabHint"></div>
+
+    <div class="metricsGrid">
+      <div class="kpi"><div class="t">Mean HR</div><div class="v" id="m_hr">—</div><div class="s muted">bpm</div></div>
+      <div class="kpi"><div class="t">Mean IBI</div><div class="v" id="m_ibi">—</div><div class="s muted">ms</div></div>
+      <div class="kpi"><div class="t">SDNN</div><div class="v" id="m_sdnn">—</div><div class="s muted">ms</div></div>
+      <div class="kpi"><div class="t">RMSSD</div><div class="v" id="m_rmssd">—</div><div class="s muted">ms</div></div>
+      <div class="kpi"><div class="t">pNN50</div><div class="v" id="m_pnn50">—</div><div class="s muted">%</div></div>
+      <div class="kpi"><div class="t">LF/HF</div><div class="v" id="m_lfhf">—</div><div class="s muted">ratio</div></div>
+      <div class="kpi"><div class="t">LF Power</div><div class="v" id="m_lf">—</div><div class="s muted">a.u.</div></div>
+      <div class="kpi"><div class="t">HF Power</div><div class="v" id="m_hf">—</div><div class="s muted">a.u.</div></div>
+    </div>
+
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr><th style="width:260px;">Poincaré Ellipse</th><th style="width:240px;">Value</th><th>Notes</th></tr>
+        </thead>
+        <tbody id="poincareStatsBody">
+          <tr><td>SD1 / SD2</td><td>—</td><td class="muted">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="toolbar" style="margin-top:12px">
+      <button class="secondary" onclick="downloadSegmentsCSV()">Download Segment CSV</button>
+      <span class="hint" style="margin:0" id="segmentInfoText">Download the segment table as CSV.</span>
+    </div>
+
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:70px;">Seg</th>
+            <th style="width:190px;">Timeline</th>
+            <th style="width:210px;">Time Range (abs sec)</th>
+            <th style="width:140px;">W/Step</th>
+            <th style="width:170px;">Samples</th>
+            <th style="width:110px;">Mean HR</th>
+            <th style="width:110px;">Mean IBI</th>
+            <th>SDNN</th>
+            <th>RMSSD</th>
+            <th>pNN50</th>
+            <th>LF</th>
+            <th>HF</th>
+            <th>LF/HF</th>
+          </tr>
+        </thead>
+        <tbody id="segmentTableBody">
+          <tr><td colspan="13" class="muted">Generated after analysis.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="hint">Note: HRV/PSD in this mock does not replace real physiological computation and is only for UI flow demonstration.</div>
+  </div>
+
+  <div class="toolbar">
+    <button class="secondary" onclick="go('workspace')">Back to Workspace</button>
+    <button onclick="go('parents')">Go to Parent Projects</button>
+  </div>
+</section>
+
+<!-- =========================
+     CHILD Project modal (create/edit)
+========================= -->
+<div id="projectModal" class="modal hidden" aria-hidden="true">
+  <div class="modal-box">
+    <h3 id="projectModalTitle">Project Metadata</h3>
+    <p class="hint" style="margin-top:8px">
+      The form below is auto-generated from schema (JSON). Add or remove fields in the schema only.
+    </p>
+
+    <div id="projectForm" class="formGrid"></div>
+
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeProjectModal()">Cancel</button>
+      <button id="projectSaveBtn" onclick="saveChildMetadata()">Save</button>
+    </div>
+
+    <div class="hint" style="margin-top:10px">
+      Edit <b>path</b> values in <b>PROJECT_METADATA_SCHEMA</b> at the top of the code.
+    </div>
+  </div>
+</div>
+
+<!-- =========================
+     PARENT Project modal
+========================= -->
+<div id="parentModal" class="modal hidden" aria-hidden="true">
+  <div class="modal-box">
+    <h3 id="parentModalTitle">Parent Project Metadata</h3>
+    <p class="hint" style="margin-top:8px">
+      Parent-project (study-level) metadata. IRB/Date/Time are auto-filled when creating child projects.
+    </p>
+
+    <div id="parentForm" class="formGrid"></div>
+
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeParentModal()">Cancel</button>
+      <button id="parentSaveBtn" onclick="saveParentMetadata()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="personModal" class="modal hidden" aria-hidden="true">
+  <div class="modal-box" style="width:380px">
+    <h3>Select Analysis Subject</h3>
+    <p class="hint" style="margin:8px 0 0">For this mock, only Person A/B selection is used.</p>
+    <label><input type="radio" name="p" value="A" checked/> Person A</label>
+    <label><input type="radio" name="p" value="B"/> Person B</label>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closePersonModal()">Cancel</button>
+      <button onclick="startAnalysis()">Confirm Selection</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // =========================================================
+  // Schema with "path" for nested JSON storage
+  // =========================================================
+
+  // Parent schema
+  const PARENT_METADATA_SCHEMA = {
+    sections: [
+      {
+        id: "parent",
+        title: "Parent Project",
+        hint: "Parent (study-level) project info",
+        fields: [
+          { key: "parentName",  path:"parent.name",        label: "Project Name", type: "string", required: true,  colSpan: 6, placeholder: "e.g.: Heatwave_Worker_Study_2026" },
+          { key: "parentDate",  path:"parent.date",        label: "Date",         type: "date",   required: true,  colSpan: 3, default: "today" },
+          { key: "parentTime",  path:"parent.time",        label: "Time",         type: "string", required: true,  colSpan: 3, placeholder: "e.g.: 09:30" },
+          { key: "parentIRB",   path:"parent.irbNumber",   label: "IRB Number",   type: "string", required: true,  colSpan: 6, placeholder: "e.g.: IRB-2026-xxx" },
+          { key: "parentDesc",  path:"parent.description", label: "Description",  type: "textarea", required: false, colSpan: 12, placeholder: "Study overview, objective, precautions, etc." }
+        ]
+      }
+    ]
+  };
+
+  // Child schema (based on existing PROJECT_METADATA_SCHEMA)
+  //   - Requirement: keep Core Session ID and Description/Notes
+  //   - Additional: auto-fill parent time by adding Core field "Session Time"
+  const PROJECT_METADATA_SCHEMA = {
+    sections: [
+      {
+        id: "core",
+        title: "Core",
+        hint: "Required fields to identify project/session",
+        fields: [
+          { key: "projectName", path:"project.name", label: "Project Name", type: "string", required: true, colSpan: 6, placeholder: "e.g.: Video1_Session" },
+          { key: "sessionId",  path:"session.id",  label: "Session ID", type: "string", required: true, colSpan: 6, placeholder: "e.g.: SESS-2026-01-22-001" },
+
+          { key: "date",       path:"session.date", label: "Date", type: "date", required: true, colSpan: 6, default: "today" },
+
+          /* Added: Session Time (for parent time auto-fill) */
+          { key: "time",       path:"session.time", label: "Session Time", type: "string", required: false, colSpan: 6, placeholder: "e.g.: 09:30" },
+
+          { key: "site",       path:"session.site", label: "Site / Location", type: "string", required: false, colSpan: 6, placeholder: "e.g.: Lab-1 / Hospital / Field" },
+          { key: "description",path:"project.description", label: "Description / Notes", type: "textarea", required: false, colSpan: 12, placeholder: "Record measurement conditions, exclusion criteria, and issues" },
+        ]
+      },
+      {
+        id: "study",
+        title: "Study / Subject",
+        hint: "Study/subject information (optional)",
+        fields: [
+          { key: "subjectsCount", path:"study.subjectsCount", label: "Subjects (count)", type: "number", required: false, colSpan: 4, placeholder: "e.g.: 1", min: 1, step: 1 },
+          { key: "operator",      path:"study.operator",      label: "Operator / Researcher", type: "string", required: false, colSpan: 4, placeholder: "e.g.: KJ Lee" },
+          { key: "irbOrStudyId",  path:"study.irbOrStudyId",  label: "Study / IRB ID", type: "string", required: false, colSpan: 4, placeholder: "e.g.: IRB-2026-xxx" },
+          { key: "protocol",      path:"study.protocol",      label: "Protocol / Condition", type: "string", required: false, colSpan: 12, placeholder: "e.g.: Resting, seated, baseline 5min" },
+        ]
+      },
+      {
+        id: "acquisition",
+        title: "Acquisition",
+        hint: "Camera/environment settings (optional)",
+        fields: [
+          { key: "device",     path:"acquisition.device",     label: "Device / Camera", type: "string", required: false, colSpan: 6, placeholder: "e.g.: iPhone 15 Pro Front / Logitech C920" },
+          { key: "fps",        path:"acquisition.fps",        label: "FPS", type: "number", required: false, colSpan: 3, placeholder: "e.g.: 30", min: 1, step: 1 },
+          { key: "resolution", path:"acquisition.resolution", label: "Resolution", type: "string", required: false, colSpan: 3, placeholder: "e.g.: 1920x1080" },
+          { key: "lighting",   path:"acquisition.lighting",   label: "Lighting", type: "enum", required: false, colSpan: 6, options: ["Indoor / Controlled","Indoor / Ambient","Outdoor / Daylight","Outdoor / Mixed"] },
+          { key: "network",    path:"acquisition.network",    label: "Network", type: "enum", required: false, colSpan: 6, options: ["Offline","Online","Intermittent"] },
+        ]
+      }
+    ]
+  };
+
+  // =========================================================
+  // State (Parent → Children)
+  // =========================================================
+  let parents = [];              // [{id, meta, children: [{id, meta}]}]
+  let currentParent = null;      // parent object
+  let currentChild = null;       // child object
+
+  // Video state
+  let currentVideoObjectURL = null;
+  let currentVideoDurationSec = 60; // fallback
+  let selectedStartSec = 0;
+  let selectedEndSec = 60;
+
+  // Mock data series (for entire video timeline)
+  const MOCK_SR_HZ = 6;
+  const MOCK_MAX_SEC = 600;
+  let fullSeries = null; // {durationSec, hr[], ibi[]}
+
+  // UI / analysis state
+  let analysisSeries=null; // selection slice series {hr, ibi}
+  let seed=12345;
+  let activeTab="ts";
+  let psdZoomOn=false;
+  let psdZoomCenter="LF";
+
+  // modal modes
+  let parentModalMode="create"; // "create" | "edit"
+  let childModalMode="create";  // "create" | "edit"
+  let editingParentId=null;
+  let editingChildId=null;
+
+  // Segments cache for CSV
+  let lastSegments=null;
+
+  // Display limit for segment table
+  const SEGMENT_TABLE_DISPLAY_LIMIT = 30;
+
+  // Group test source rows from analyzed children
+  let loadedAnalyzedRows = [];
+
+  window.addEventListener('DOMContentLoaded', () => {
+    go('welcome');
+    closeProjectModal(); closePersonModal(); closeParentModal();
+
+    buildFormFromSchema("projectForm", PROJECT_METADATA_SCHEMA, "md_");
+    buildFormFromSchema("parentForm", PARENT_METADATA_SCHEMA, "pd_");
+
+    initDualHandleSeconds();
+    attachResultControls();
+    setTab("ts", true);
+
+    renderResultGraph();
+    updateWindowKPIs(null);
+    updatePoincareStats(null);
+    updateSegmentTable(null);
+
+    // Playhead sync
+    previewVideo.addEventListener("timeupdate", updatePlayheadFromVideo);
+    previewVideo.addEventListener("seeked", updatePlayheadFromVideo);
+    previewVideo.addEventListener("loadedmetadata", () => {
+      const d = Number(previewVideo.duration || 0);
+      if (isFinite(d) && d > 0) {
+        currentVideoDurationSec = d;
+        configureDualSliderForSeconds(currentVideoDurationSec);
+        rangeMin.value = "0";
+        rangeMax.value = String(currentVideoDurationSec);
+        updateDualHandleSeconds();
+        updatePlayheadFromVideo();
+      }
+    });
+
+    // Initial ticks
+    minTick.textContent = "0.0s";
+    maxTick.textContent = `${currentVideoDurationSec.toFixed(1)}s`;
+
+    // initial render
+    renderParents();
+  });
+
+  function go(id){
+    document.querySelectorAll("section").forEach(s=>s.classList.add("hidden"));
+    document.getElementById(id).classList.remove("hidden");
+  }
+
+  // =========================================================
+  // Nested path helpers
+  // =========================================================
+  function setByPath(obj, path, value){
+    const parts = path.split(".");
+    let cur = obj;
+    for (let i=0;i<parts.length;i++){
+      const k = parts[i];
+      if (i === parts.length - 1) cur[k] = value;
+      else {
+        if (typeof cur[k] !== "object" || cur[k] === null) cur[k] = {};
+        cur = cur[k];
+      }
+    }
+  }
+  function getByPath(obj, path){
+    const parts = path.split(".");
+    let cur = obj;
+    for (const k of parts){
+      if (!cur || typeof cur !== "object") return null;
+      cur = cur[k];
+    }
+    return (cur === undefined ? null : cur);
+  }
+  function deepMerge(a,b){
+    const out = Array.isArray(a) ? a.slice() : {...a};
+    for (const [k,v] of Object.entries(b||{})){
+      if (v && typeof v === "object" && !Array.isArray(v)){
+        out[k] = deepMerge(out[k] && typeof out[k]==="object" ? out[k] : {}, v);
+      } else out[k] = v;
+    }
+    return out;
+  }
+
+  // =========================================================
+  // Generic schema-driven form builder
+  // =========================================================
+  function buildFormFromSchema(rootId, schema, idPrefix){
+    const root = document.getElementById(rootId);
+    root.innerHTML = "";
+
+    for (const sec of schema.sections){
+      const title = document.createElement("div");
+      title.className = "sectionTitle";
+      title.textContent = sec.title;
+      root.appendChild(title);
+
+      if (sec.hint){
+        const hint = document.createElement("div");
+        hint.className = "sectionHint";
+        hint.textContent = sec.hint;
+        root.appendChild(hint);
+      }
+
+      for (const f of sec.fields){
+        const field = document.createElement("div");
+        field.className = "field";
+        field.classList.add(`col${f.colSpan || 6}`);
+
+        const label = document.createElement("label");
+        label.innerHTML = `${escapeHtml(f.label)} ${f.required ? '<span class="req">*</span>' : ""}`;
+        field.appendChild(label);
+
+        const id = `${idPrefix}${f.key}`;
+
+        let input;
+        if (f.type === "textarea"){
+          input = document.createElement("textarea");
+          input.placeholder = f.placeholder || "";
+        } else if (f.type === "enum"){
+          input = document.createElement("select");
+          const opt0 = document.createElement("option");
+          opt0.value = "";
+          opt0.textContent = "(Select)";
+          input.appendChild(opt0);
+          for (const opt of (f.options || [])){
+            const o = document.createElement("option");
+            o.value = opt;
+            o.textContent = opt;
+            input.appendChild(o);
+          }
+        } else {
+          input = document.createElement("input");
+          if (f.type === "date") input.type = "date";
+          else if (f.type === "number") input.type = "number";
+          else input.type = "text";
+          if (f.placeholder) input.placeholder = f.placeholder;
+          if (f.type === "number"){
+            if (f.min !== undefined) input.min = String(f.min);
+            if (f.max !== undefined) input.max = String(f.max);
+            if (f.step !== undefined) input.step = String(f.step);
+          }
+        }
+
+        input.id = id;
+        field.appendChild(input);
+        root.appendChild(field);
+      }
+    }
+  }
+
+  // Populate form by merging baseObj (auto-fill) + obj (edit target)
+  //    - obj values take precedence when present
+  function populateFormFromObject(schema, obj, idPrefix, baseObj=null){
+    const merged = deepMerge(baseObj || {}, obj || {});
+    for (const sec of schema.sections){
+      for (const f of sec.fields){
+        const el = document.getElementById(`${idPrefix}${f.key}`);
+        if (!el) continue;
+        const value = merged ? getByPath(merged, f.path) : null;
+
+        if (value !== null && value !== undefined && value !== ""){
+          el.value = String(value);
+          continue;
+        }
+
+        if (f.default === "today" && f.type === "date"){
+          const d = new Date();
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth()+1).padStart(2,'0');
+          const dd = String(d.getDate()).padStart(2,'0');
+          el.value = `${yyyy}-${mm}-${dd}`;
+        } else {
+          el.value = "";
+        }
+      }
+    }
+  }
+
+  function readFormToNestedObject(schema, idPrefix){
+    const out = {};
+    for (const sec of schema.sections){
+      for (const f of sec.fields){
+        const el = document.getElementById(`${idPrefix}${f.key}`);
+        if (!el) continue;
+
+        let v = el.value;
+        if (f.type === "number"){
+          v = (v === "" ? null : Number(v));
+        } else {
+          v = (v || "").trim();
+          if (v === "") v = null;
+        }
+        if (v !== null) setByPath(out, f.path, v);
+      }
+    }
+    return out;
+  }
+
+  function validateForm(schema, idPrefix){
+    const errors = [];
+    for (const sec of schema.sections){
+      for (const f of sec.fields){
+        if (!f.required) continue;
+        const el = document.getElementById(`${idPrefix}${f.key}`);
+        const v = el ? (el.value || "").trim() : "";
+        if (!v) errors.push(`${f.label} is required.`);
+      }
+    }
+    return errors;
+  }
+
+  // =========================================================
+  // Parent modal open/save
+  // =========================================================
+  function openParentModalForCreate(){
+    parentModalMode = "create";
+    editingParentId = null;
+    parentModalTitle.textContent = "New Parent Project (Create)";
+    parentSaveBtn.textContent = "Create";
+    populateFormFromObject(PARENT_METADATA_SCHEMA, null, "pd_");
+    parentModal.classList.remove("hidden");
+  }
+
+  function openParentModalForEdit(parentId){
+    const p = parents.find(x=>x.id===parentId);
+    if (!p) return;
+    parentModalMode = "edit";
+    editingParentId = parentId;
+    parentModalTitle.textContent = "Edit Parent Metadata";
+    parentSaveBtn.textContent = "Save";
+    populateFormFromObject(PARENT_METADATA_SCHEMA, p.meta, "pd_");
+    parentModal.classList.remove("hidden");
+  }
+
+  function closeParentModal(){ parentModal.classList.add("hidden"); }
+
+  function saveParentMetadata(){
+    const errors = validateForm(PARENT_METADATA_SCHEMA, "pd_");
+    if (errors.length){ alert(errors.join("\n")); return; }
+
+    const nested = readFormToNestedObject(PARENT_METADATA_SCHEMA, "pd_");
+
+    if (parentModalMode === "create"){
+      parents.push({
+        id: "PP" + Math.floor(Math.random()*1e9).toString(16),
+        meta: nested,
+        children: []
+      });
+    } else {
+      const p = parents.find(x=>x.id===editingParentId);
+      if (!p) return;
+      p.meta = deepMerge(p.meta || {}, nested);
+    }
+    renderParents();
+
+    // Refresh children view if the edited parent is currently selected
+    if (currentParent && currentParent.id === editingParentId){
+      currentParent = parents.find(x=>x.id===editingParentId) || currentParent;
+      renderChildren();
+    }
+
+    closeParentModal();
+  }
+
+  // =========================================================
+  // Child modal open/save (project create/edit)
+  // =========================================================
+  function openChildModalForCreate(){
+    if (!currentParent){ alert("Please select a parent project first."); return; }
+
+    childModalMode = "create";
+    editingChildId = null;
+    projectModalTitle.textContent = "New Video Project (Create)";
+    projectSaveBtn.textContent = "Create";
+
+    // ✅ AUTO-FILL from Parent: IRB / Date / Time
+    const base = {};
+    const p = currentParent.meta?.parent || {};
+    if (p.date) setByPath(base, "session.date", p.date);
+    if (p.time) setByPath(base, "session.time", p.time);
+    if (p.irbNumber) setByPath(base, "study.irbOrStudyId", p.irbNumber);
+
+    populateFormFromObject(PROJECT_METADATA_SCHEMA, null, "md_", base);
+    projectModal.classList.remove("hidden");
+  }
+
+  function openChildModalForEdit(childId){
+    if (!currentParent) return;
+    const c = (currentParent.children || []).find(x=>x.id===childId);
+    if (!c) return;
+
+    childModalMode = "edit";
+    editingChildId = childId;
+    projectModalTitle.textContent = "Edit Video Project Metadata";
+    projectSaveBtn.textContent = "Save";
+
+    // In edit mode, do not overwrite with auto-fill (preserve existing values)
+    populateFormFromObject(PROJECT_METADATA_SCHEMA, c.meta, "md_");
+    projectModal.classList.remove("hidden");
+  }
+
+  function closeProjectModal(){ projectModal.classList.add("hidden"); }
+
+  function saveChildMetadata(){
+    const errors = validateForm(PROJECT_METADATA_SCHEMA, "md_");
+    if (errors.length){ alert(errors.join("\n")); return; }
+
+    const nested = readFormToNestedObject(PROJECT_METADATA_SCHEMA, "md_");
+
+    if (!currentParent){ alert("No parent project is selected."); return; }
+
+    if (childModalMode === "create"){
+      currentParent.children = currentParent.children || [];
+      currentParent.children.push({
+        id: "CP" + Math.floor(Math.random()*1e9).toString(16),
+        meta: nested
+      });
+    } else {
+      const c = (currentParent.children || []).find(x=>x.id===editingChildId);
+      if (!c) return;
+      c.meta = deepMerge(c.meta || {}, nested);
+    }
+
+    ensureDummyAnalysesForParent(currentParent);
+    renderChildren();
+    closeProjectModal();
+  }
+
+  // =========================================================
+  // Rendering: Parents / Children
+  // =========================================================
+  function renderParents(){
+    parentGrid.innerHTML = "";
+    parents.forEach(p=>{
+      const name = getByPath(p.meta,"parent.name") || "Untitled Parent";
+      const date = getByPath(p.meta,"parent.date");
+      const time = getByPath(p.meta,"parent.time");
+      const irb  = getByPath(p.meta,"parent.irbNumber");
+      const desc = getByPath(p.meta,"parent.description") || "";
+      const count = (p.children || []).length;
+
+      const tags = [
+        date ? `Date: ${escapeHtml(date)}` : null,
+        time ? `Time: ${escapeHtml(time)}` : null,
+        irb  ? `IRB: ${escapeHtml(irb)}` : null,
+        `Videos: ${count}`
+      ].filter(Boolean).slice(0,4);
+
+      const c=document.createElement("div");
+      c.className="card";
+      c.innerHTML=`
+        <div>
+          <h3>${escapeHtml(name)}</h3>
+          <p style="color:#9ca3af;margin:6px 0 0">${desc ? escapeHtml(desc) : "—"}</p>
+          <div class="kv">${tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+        </div>
+        <div class="cardActions">
+          <button class="btnSmall" onclick="event.stopPropagation(); openChildren('${p.id}')">Open</button>
+          <button class="btnSmall secondary" onclick="event.stopPropagation(); openParentModalForEdit('${p.id}')">Edit</button>
+        </div>
+      `;
+      c.onclick=()=>openChildren(p.id);
+      parentGrid.appendChild(c);
+    });
+
+    go("parents");
+  }
+
+  function openChildren(parentId){
+    currentParent = parents.find(x=>x.id===parentId) || null;
+    currentChild = null;
+    renderChildren();
+    go("children");
+  }
+
+  function renderChildren(){
+    if (!currentParent){
+      childrenTitle.textContent = "Video Projects";
+      parentChips.innerHTML = "";
+      childGrid.innerHTML = "";
+      loadedAnalyzedRows = [];
+      groupDataInfo.textContent = "No analysis data loaded";
+      groupTestSummary.textContent = "Load analyzed data first.";
+      groupStatsBody.innerHTML = `<tr><td colspan="7" class="muted">No analyzed video project data yet.</td></tr>`;
+      return;
+    }
+
+    const pmeta = currentParent.meta || {};
+    const pname = getByPath(pmeta,"parent.name") || "Untitled Parent";
+    childrenTitle.textContent = `Video Projects — ${pname}`;
+
+    // Parent chips
+    const chips = [
+      getByPath(pmeta,"parent.date") ? `Date: ${getByPath(pmeta,"parent.date")}` : null,
+      getByPath(pmeta,"parent.time") ? `Time: ${getByPath(pmeta,"parent.time")}` : null,
+      getByPath(pmeta,"parent.irbNumber") ? `IRB: ${getByPath(pmeta,"parent.irbNumber")}` : null
+    ].filter(Boolean);
+
+    parentChips.innerHTML = chips.map(x=>`<span class="tag">${escapeHtml(x)}</span>`).join("");
+
+    // children cards
+    childGrid.innerHTML = "";
+    (currentParent.children || []).forEach(ch=>{
+      const name = getByPath(ch.meta,"project.name") || "Untitled";
+      const desc = getByPath(ch.meta,"project.description") || "";
+      const date = getByPath(ch.meta,"session.date");
+      const time = getByPath(ch.meta,"session.time");
+      const sessionId = getByPath(ch.meta,"session.id");
+      const irb = getByPath(ch.meta,"study.irbOrStudyId");
+      const protocol = getByPath(ch.meta,"study.protocol");
+      const device = getByPath(ch.meta,"acquisition.device");
+      const analyzedCount = (ch.analysis && ch.analysis.runs) ? ch.analysis.runs.length : 0;
+      const latestPerson = ch.analysis && ch.analysis.latest ? ch.analysis.latest.person : null;
+
+      const tags = [
+        date ? `Date: ${escapeHtml(date)}` : null,
+        time ? `Time: ${escapeHtml(time)}` : null,
+        sessionId ? `Session: ${escapeHtml(sessionId)}` : null,
+        `Analyzed: ${analyzedCount}`,
+        latestPerson ? `Last Person: ${escapeHtml(latestPerson)}` : null,
+        irb ? `IRB: ${escapeHtml(irb)}` : null,
+        protocol ? `Protocol: ${escapeHtml(protocol)}` : null
+      ].filter(Boolean).slice(0,4);
+
+      const card=document.createElement("div");
+      card.className="card";
+      card.innerHTML=`
+        <div>
+          <h3>${escapeHtml(name)}</h3>
+          <p style="color:#9ca3af;margin:6px 0 0">${desc ? escapeHtml(desc) : "—"}</p>
+          <div class="kv">${tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+          <div class="hint" style="margin-top:10px">${device ? `Device: ${escapeHtml(device)}` : ""}</div>
+        </div>
+        <div class="cardActions">
+          <button class="btnSmall" onclick="event.stopPropagation(); openWorkspace('${currentParent.id}','${ch.id}')">Open</button>
+          <button class="btnSmall secondary" onclick="event.stopPropagation(); openChildModalForEdit('${ch.id}')">Edit Metadata</button>
+        </div>
+      `;
+      card.onclick=()=>openWorkspace(currentParent.id, ch.id);
+      childGrid.appendChild(card);
+    });
+
+    loadAnalyzedProjectData();
+  }
+
+  function loadAnalyzedProjectData(){
+    if (!currentParent){
+      loadedAnalyzedRows = [];
+      groupDataInfo.textContent = "No parent selected";
+      groupTestSummary.textContent = "Select a parent project first.";
+      groupStatsBody.innerHTML = `<tr><td colspan="7" class="muted">No analyzed video project data yet.</td></tr>`;
+      return;
+    }
+
+    ensureDummyAnalysesForParent(currentParent);
+
+    const rows = [];
+    for (const ch of (currentParent.children || [])){
+      const latest = ch.analysis && ch.analysis.latest;
+      if (!latest || !latest.metrics) continue;
+
+      rows.push({
+        childId: ch.id,
+        projectName: getByPath(ch.meta, "project.name") || "Untitled",
+        sessionDate: getByPath(ch.meta, "session.date") || "Unknown",
+        protocol: getByPath(ch.meta, "study.protocol") || "Unknown",
+        device: getByPath(ch.meta, "acquisition.device") || "Unknown",
+        operator: getByPath(ch.meta, "study.operator") || "Unknown",
+        site: getByPath(ch.meta, "session.site") || "Unknown",
+        person: latest.person || "Unknown",
+        isDummy: !!latest.isDummy,
+        metrics: latest.metrics
+      });
+    }
+
+    loadedAnalyzedRows = rows;
+    const dummyCount = rows.filter(r => r.isDummy).length;
+    const realCount = rows.length - dummyCount;
+    groupDataInfo.textContent = `Loaded ${rows.length} analyzed project(s) (real=${realCount}, dummy=${dummyCount})`;
+    groupTestSummary.textContent = rows.length ? "Choose group/metric/test and run." : "No analyzed data available yet.";
+    groupStatsBody.innerHTML = `<tr><td colspan="7" class="muted">${rows.length ? "Run group test to see per-group stats." : "No analyzed video project data yet."}</td></tr>`;
+  }
+
+  function ensureDummyAnalysesForParent(parent){
+    if (!parent) return;
+    const children = parent.children || [];
+    if (children.length < 2) return;
+
+    for (let i=0; i<children.length; i++){
+      const ch = children[i];
+      if (!ch.analysis) ch.analysis = { runs: [], latest: null };
+
+      if (ch.analysis.latest && ch.analysis.latest.metrics) continue;
+      if (ch.analysis.runs && ch.analysis.runs.length){
+        const last = ch.analysis.runs[ch.analysis.runs.length - 1];
+        if (last && last.metrics){
+          ch.analysis.latest = last;
+          continue;
+        }
+      }
+
+      const snap = createDummyAnalysisSnapshot(parent, ch, i);
+      ch.analysis.runs.push(snap);
+      ch.analysis.latest = snap;
+    }
+  }
+
+  function createDummyAnalysisSnapshot(parent, child, idx){
+    const parentId = parent.id || "P";
+    const childId = child.id || `C${idx}`;
+    const protocol = getByPath(child.meta, "study.protocol") || "Unknown";
+    const seedBase = `${parentId}|${childId}|${protocol}|${idx}`;
+
+    const f1 = dummyHash01(seedBase + "|f1");
+    const f2 = dummyHash01(seedBase + "|f2");
+    const f3 = dummyHash01(seedBase + "|f3");
+    const fp = dummyHash01(protocol + "|protocol");
+
+    const protoShift = (fp - 0.5) * 16; // create between-group differences
+    const meanHR = clamp(72 + protoShift + (f1 - 0.5) * 10, 50, 120);
+    const meanIBI = clamp((60000 / meanHR) + (f2 - 0.5) * 30, 450, 1400);
+    const sdnn = clamp(32 + protoShift * 0.6 + (f2 - 0.5) * 20, 8, 160);
+    const rmssd = clamp(28 + protoShift * 0.7 + (f3 - 0.5) * 24, 6, 180);
+    const pnn50 = clamp(10 + protoShift * 0.8 + (f1 - 0.5) * 28, 0, 95);
+
+    const lf = clamp(0.08 + f2 * 0.9, 0.01, 3.0);
+    const hf = clamp(0.08 + f3 * 0.9, 0.01, 3.0);
+    const lfhf = hf > 1e-9 ? (lf / hf) : NaN;
+
+    const startSec = Math.round(f1 * 45);
+    const lenSec = 30 + Math.round(f2 * 150);
+    const endSec = startSec + lenSec;
+    const person = (f3 > 0.5) ? "A" : "B";
+
+    return {
+      analyzedAt: new Date(Date.now() - Math.floor(f1 * 864000000)).toISOString(),
+      person,
+      isDummy: true,
+      selection: {
+        startSecAbs: startSec,
+        endSecAbs: endSec,
+        lenSec: lenSec
+      },
+      metrics: { meanHR, meanIBI, sdnn, rmssd, pnn50, lf, hf, lfhf }
+    };
+  }
+
+  function runGroupStatistics(){
+    if (!loadedAnalyzedRows.length){
+      alert("No analyzed project data is loaded.");
+      return;
+    }
+
+    const metricKey = groupMetricSel.value;
+    const groupByKey = groupBySel.value;
+    const testType = groupTestSel.value;
+
+    const grouped = {};
+    for (const row of loadedAnalyzedRows){
+      const g = row[groupByKey] || "Unknown";
+      const v = Number(row.metrics[metricKey]);
+      if (!isFinite(v)) continue;
+      if (!grouped[g]) grouped[g] = [];
+      grouped[g].push({ value: v, projectName: row.projectName });
+    }
+
+    const groupEntries = Object.entries(grouped)
+      .map(([name, arr]) => ({ name, arr }))
+      .filter(x => x.arr.length > 0);
+
+    if (groupEntries.length < 2){
+      groupTestSummary.textContent = "At least 2 non-empty groups are required.";
+      groupStatsBody.innerHTML = `<tr><td colspan="7" class="muted">Insufficient groups after filtering empty values.</td></tr>`;
+      return;
+    }
+
+    if (testType === "ttest" && groupEntries.length !== 2){
+      groupTestSummary.textContent = `Welch t-test requires exactly 2 groups (current: ${groupEntries.length}).`;
+      groupStatsBody.innerHTML = `<tr><td colspan="7" class="muted">Choose a grouping that creates exactly 2 groups or use ANOVA.</td></tr>`;
+      return;
+    }
+
+    const summaryRows = [];
+    for (const g of groupEntries){
+      const vals = g.arr.map(x => x.value);
+      summaryRows.push({
+        group: g.name,
+        n: vals.length,
+        mean: avg(vals),
+        sd: std(vals),
+        min: Math.min(...vals),
+        max: Math.max(...vals),
+        projects: g.arr.map(x => x.projectName).join(", ")
+      });
+    }
+
+    groupStatsBody.innerHTML = summaryRows.map(r => `
+      <tr>
+        <td>${escapeHtml(r.group)}</td>
+        <td>${r.n}</td>
+        <td>${fmt(r.mean, 4)}</td>
+        <td>${fmt(r.sd, 4)}</td>
+        <td>${fmt(r.min, 4)}</td>
+        <td>${fmt(r.max, 4)}</td>
+        <td class="muted">${escapeHtml(r.projects)}</td>
+      </tr>
+    `).join("");
+
+    const testInput = groupEntries.map(g => ({
+      name: g.name,
+      values: g.arr.map(x => x.value)
+    }));
+
+    let result = null;
+    if (testType === "ttest"){
+      result = welchTTestTwoGroups(testInput[0], testInput[1]);
+      groupTestSummary.textContent =
+        `Welch t-test: t=${fmt(result.t, 4)}, df=${fmt(result.df, 2)}, p=${fmt(result.p, 6)} (${result.p < 0.05 ? "significant" : "not significant"})`;
+    } else {
+      result = oneWayAnova(testInput);
+      groupTestSummary.textContent =
+        `One-way ANOVA: F=${fmt(result.f, 4)}, df=(${result.df1}, ${result.df2}), p=${fmt(result.p, 6)} (${result.p < 0.05 ? "significant" : "not significant"})`;
+    }
+  }
+
+  // =========================================================
+  // Workspace open
+  // =========================================================
+  function openWorkspace(parentId, childId){
+    currentParent = parents.find(x=>x.id===parentId) || currentParent;
+    currentChild = (currentParent?.children || []).find(x=>x.id===childId) || null;
+
+    const pName = getByPath(currentParent?.meta,"parent.name") || "Parent";
+    const cName = getByPath(currentChild?.meta,"project.name") || "Video Project";
+
+    workspaceTitle.innerText = `Workspace — ${pName} / ${cName}`;
+    renderMetaBanner(currentChild);
+
+    // Reset UI
+    videoLabel.textContent="No video loaded";
+    videoThumb.style.display="none";
+    thumbPlaceholder.style.display="block";
+    thumbPlaceholder.textContent="No video loaded (thumbnail will appear here)";
+    previewVideo.removeAttribute("src");
+    previewVideo.load();
+
+    currentVideoDurationSec = 60;
+    configureDualSliderForSeconds(currentVideoDurationSec);
+    rangeMin.value="0";
+    rangeMax.value=String(currentVideoDurationSec);
+    updateDualHandleSeconds();
+
+    fullSeries=null;
+    analysisSeries=null;
+    analysisGraph.classList.add("hidden");
+    lastSegments=null;
+
+    playhead.style.display="none";
+
+    go("workspace");
+  }
+
+  function renderMetaBanner(child){
+    if (!child || !child.meta){
+      metaBanner.classList.add("hidden");
+      metaChips.innerHTML="";
+      return;
+    }
+    const m=child.meta;
+    const chips = [
+      getByPath(m,"session.date") ? `Date: ${getByPath(m,"session.date")}` : null,
+      getByPath(m,"session.time") ? `Time: ${getByPath(m,"session.time")}` : null,
+      getByPath(m,"session.id") ? `Session: ${getByPath(m,"session.id")}` : null,
+      getByPath(m,"session.site") ? `Site: ${getByPath(m,"session.site")}` : null,
+      getByPath(m,"study.irbOrStudyId") ? `IRB: ${getByPath(m,"study.irbOrStudyId")}` : null,
+      getByPath(m,"study.protocol") ? `Protocol: ${getByPath(m,"study.protocol")}` : null,
+      getByPath(m,"acquisition.device") ? `Device: ${getByPath(m,"acquisition.device")}` : null
+    ].filter(Boolean);
+
+    metaChips.innerHTML = chips.map(x=>`<span class="tag">${escapeHtml(x)}</span>`).join("");
+    metaBanner.classList.remove("hidden");
+  }
+
+  // =========================================================
+  // Video load + thumbnail + series generation
+  // =========================================================
+  videoFileInput.addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (currentVideoObjectURL) URL.revokeObjectURL(currentVideoObjectURL);
+    currentVideoObjectURL = URL.createObjectURL(file);
+
+    // Load into preview video
+    previewVideo.src = currentVideoObjectURL;
+    previewVideo.load();
+
+    videoLabel.textContent = `Video loaded: ${file.name}`;
+
+    // Thumbnail capture at 0.5s
+    try {
+      const dataURL = await captureVideoThumbnail(currentVideoObjectURL, 0.5);
+      videoThumb.src = dataURL;
+      videoThumb.style.display = "block";
+      thumbPlaceholder.style.display = "none";
+    } catch (err) {
+      console.error(err);
+      videoThumb.style.display = "none";
+      thumbPlaceholder.style.display = "block";
+      thumbPlaceholder.textContent = "Failed to generate thumbnail (codec not supported in this browser).";
+    }
+
+    // When metadata is loaded, we configure slider and make full-series mock
+    previewVideo.onloadedmetadata = () => {
+      const d = Number(previewVideo.duration || 0);
+      currentVideoDurationSec = (isFinite(d) && d > 0) ? d : 60;
+
+      configureDualSliderForSeconds(currentVideoDurationSec);
+
+      // default select full
+      rangeMin.value = "0";
+      rangeMax.value = String(currentVideoDurationSec);
+      updateDualHandleSeconds();
+
+      // show playhead
+      playhead.style.display = "block";
+      updatePlayheadFromVideo();
+
+      // Build mock series for entire video timeline (capped)
+      fullSeries = buildFullMockSeries(currentVideoDurationSec);
+
+      // Reset analysis outputs
+      analysisGraph.classList.add("hidden");
+      analysisSeries=null;
+      lastSegments=null;
+    };
+  });
+
+  function captureVideoThumbnail(objectURL, seekSec = 0.5) {
+    return new Promise((resolve, reject) => {
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.muted = true;
+      v.playsInline = true;
+      v.src = objectURL;
+
+      const cleanup = () => { v.pause(); v.src = ""; };
+
+      v.addEventListener("error", () => { cleanup(); reject(new Error("Video load error (unsupported codec).")); });
+
+      v.addEventListener("loadedmetadata", () => {
+        const target = Math.min(Math.max(0, seekSec), Math.max(0, (v.duration || 0) - 0.05));
+        v.currentTime = target;
+      });
+
+      v.addEventListener("seeked", () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = v.videoWidth || 640;
+          canvas.height = v.videoHeight || 360;
+          canvas.getContext("2d").drawImage(v, 0, 0, canvas.width, canvas.height);
+          const dataURL = canvas.toDataURL("image/jpeg", 0.85);
+          cleanup();
+          resolve(dataURL);
+        } catch (e) {
+          cleanup();
+          reject(e);
+        }
+      });
+    });
+  }
+
+  function buildFullMockSeries(videoDurationSec){
+    const effectiveSec = Math.min(MOCK_MAX_SEC, Math.max(1, videoDurationSec));
+    const n = Math.max(120, Math.floor(effectiveSec * MOCK_SR_HZ));
+
+    const hr=[], ibi=[];
+    let baseHR = 72 + (rand01()*6 - 3);
+
+    for (let i=0;i<n;i++){
+      const t = i / MOCK_SR_HZ;
+      const s1 = Math.sin(t * 2*Math.PI / 18) * 2.2;
+      const s2 = Math.sin(t * 2*Math.PI / 6)  * 0.9;
+      const noise = (rand01()*2 - 1) * 1.2;
+      const v = baseHR + s1 + s2 + noise;
+      hr.push(v);
+      ibi.push(60000/Math.max(35,v));
+    }
+
+    return {durationSec: videoDurationSec, effectiveSec, srHz: MOCK_SR_HZ, hr, ibi};
+  }
+
+  // =========================================================
+  // Dual handle (seconds) + playhead cursor
+  // =========================================================
+  function configureDualSliderForSeconds(durationSec){
+    const step = 0.1; // 100ms
+    rangeMin.min = "0";
+    rangeMin.max = String(durationSec);
+    rangeMin.step = String(step);
+
+    rangeMax.min = "0";
+    rangeMax.max = String(durationSec);
+    rangeMax.step = String(step);
+
+    minTick.textContent = "0.0s";
+    maxTick.textContent = `${durationSec.toFixed(1)}s`;
+  }
+
+  function initDualHandleSeconds(){
+    rangeMin.addEventListener("input", () => {
+      if (Number(rangeMin.value) > Number(rangeMax.value)) rangeMin.value = rangeMax.value;
+      updateDualHandleSeconds();
+    });
+    rangeMax.addEventListener("input", () => {
+      if (Number(rangeMax.value) < Number(rangeMin.value)) rangeMax.value = rangeMin.value;
+      updateDualHandleSeconds();
+    });
+    updateDualHandleSeconds();
+  }
+
+  function updateDualHandleSeconds(){
+    const s = Number(rangeMin.value);
+    const e = Number(rangeMax.value);
+    const dur = Math.max(0.0001, currentVideoDurationSec || 60);
+
+    selectedStartSec = clamp(s, 0, dur);
+    selectedEndSec   = clamp(e, 0, dur);
+
+    const sp = Math.round((selectedStartSec / dur) * 100);
+    const ep = Math.round((selectedEndSec   / dur) * 100);
+
+    startSec.textContent = selectedStartSec.toFixed(1);
+    endSec.textContent   = selectedEndSec.toFixed(1);
+    startPct.textContent = String(sp);
+    endPct.textContent   = String(ep);
+
+    startLabel.textContent = `${selectedStartSec.toFixed(1)}s`;
+    endLabel.textContent   = `${selectedEndSec.toFixed(1)}s`;
+    winLabel.textContent   = `${Math.max(0, selectedEndSec - selectedStartSec).toFixed(1)}s`;
+
+    highlight.style.left  = `${(selectedStartSec / dur) * 100}%`;
+    highlight.style.width = `${Math.max(0, (selectedEndSec - selectedStartSec) / dur) * 100}%`;
+
+    updatePlayheadFromVideo();
+  }
+
+  function updatePlayheadFromVideo(){
+    const dur = Math.max(0.0001, currentVideoDurationSec || 0);
+    if (!previewVideo || !isFinite(dur) || dur <= 0) {
+      playhead.style.display="none";
+      return;
+    }
+    if (!previewVideo.src) {
+      playhead.style.display="none";
+      return;
+    }
+    const t = clamp(Number(previewVideo.currentTime || 0), 0, dur);
+    const pct = (t / dur) * 100;
+    playhead.style.left = `${pct}%`;
+    playhead.style.display = "block";
+  }
+
+  // =========================================================
+  // Person modal + analysis flow
+  // =========================================================
+  function openPersonModal(){ personModal.classList.remove("hidden"); }
+  function closePersonModal(){ personModal.classList.add("hidden"); }
+
+  function startAnalysis(){
+    closePersonModal();
+
+    if (!fullSeries) fullSeries = buildFullMockSeries(currentVideoDurationSec || 60);
+
+    analysisSeries = sliceSeriesBySeconds(fullSeries, selectedStartSec, selectedEndSec);
+
+    analysisGraph.classList.remove("hidden");
+    renderAnalysisGraph();
+
+    setTimeout(() => {
+      psdZoomOn=false;
+      psdZoomCenter="LF";
+      setTab("ts", true);
+
+      const m=computeWindowMetrics();
+      const selectedPersonEl = document.querySelector('input[name="p"]:checked');
+      const selectedPerson = selectedPersonEl ? selectedPersonEl.value : "Unknown";
+      saveAnalysisToCurrentChild(m, selectedPerson);
+      updateWindowKPIs(m);
+      updatePoincareStats(m);
+      updateSegmentTable(m);
+      renderResultGraph();
+
+      go("results");
+    }, 250);
+  }
+
+  function saveAnalysisToCurrentChild(m, person){
+    if (!currentChild || !m) return;
+    if (!currentChild.analysis) currentChild.analysis = { runs: [], latest: null };
+
+    const snapshot = {
+      analyzedAt: new Date().toISOString(),
+      person,
+      selection: {
+        startSecAbs: m.startAbs,
+        endSecAbs: m.endAbs,
+        lenSec: m.selDurSec
+      },
+      metrics: {
+        meanHR: m.meanHR,
+        meanIBI: m.meanIBI,
+        sdnn: m.sdnn,
+        rmssd: m.rmssd,
+        pnn50: m.pnn50,
+        lf: m.lf,
+        hf: m.hf,
+        lfhf: m.lfhf
+      }
+    };
+
+    currentChild.analysis.runs.push(snapshot);
+    currentChild.analysis.latest = snapshot;
+  }
+
+  function sliceSeriesBySeconds(series, startSecAbs, endSecAbs){
+    const dur = Math.max(0.0001, series.durationSec);
+    const eff = series.effectiveSec;
+    const mapAbsToMock = (tAbs) => {
+      if (dur <= eff) return tAbs;
+      return (tAbs / dur) * eff;
+    };
+
+    const sMock = mapAbsToMock(startSecAbs);
+    const eMock = mapAbsToMock(endSecAbs);
+
+    const a = clamp(Math.floor(sMock * series.srHz), 0, series.ibi.length-1);
+    const b = clamp(Math.floor(eMock * series.srHz), 0, series.ibi.length-1);
+    const lo = Math.min(a,b);
+    const hi = Math.max(a,b);
+
+    const ibi = series.ibi.slice(lo, hi+1);
+    const hr  = series.hr.slice(lo, hi+1);
+
+    return {ibi, hr, startSecAbs, endSecAbs};
+  }
+
+  // =========================================================
+  // Results controls & tabs
+  // =========================================================
+  function attachResultControls(){
+    windowSel.addEventListener('change', onResultsChange);
+    statSel.addEventListener('change', onResultsChange);
+    stepSecInput.addEventListener('input', onResultsChange);
+  }
+
+  function onResultsChange(){
+    const winSec = Number(windowSel.value);
+    stepSecInput.value = String(clamp(Number(stepSecInput.value||1), 1, Math.max(1, winSec)));
+    const m=computeWindowMetrics();
+    updateWindowKPIs(m);
+    updatePoincareStats(m);
+    updateSegmentTable(m);
+    renderResultGraph();
+  }
+
+  function setTab(tab, silent=false){
+    activeTab=tab;
+    document.querySelectorAll(".tab").forEach(el=>{
+      el.classList.toggle("active", el.getAttribute("data-tab")===tab);
+    });
+
+    psdZoomBtn.classList.toggle("hidden", tab!=="psd");
+    if (tab!=="psd"){ psdZoomOn=false; psdZoomCenter="LF"; psdZoomBtn.textContent="Zoom"; }
+
+    if (tab==="ts"){
+      resultTitle.textContent="Results Graph — Time-series";
+      resultLegend.textContent="IBI time-series + summary lines (stat option)";
+      tabHint.textContent="Time-series: selected-window IBI series with stat-option summary lines";
+    } else if (tab==="poincare"){
+      resultTitle.textContent="Results Graph — Poincaré (SD1/SD2 ellipse)";
+      resultLegend.textContent="Scatter + SD1/SD2 ellipse + axis overlay";
+      tabHint.textContent="Poincaré: scatter + SD1/SD2 ellipse + axes (45°/-45°)";
+    } else {
+      resultTitle.textContent="Results Graph — PSD (LF/HF filled + peaks)";
+      resultLegend.textContent="LF/HF filled bands + LF/HF peaks + Zoom";
+      tabHint.textContent="PSD: LF/HF area fill + LF/HF peak markers + zoom toggle";
+    }
+
+    if (!silent) renderResultGraph();
+  }
+
+  function togglePSDZoom(){
+    psdZoomOn = !psdZoomOn;
+    psdZoomBtn.textContent = psdZoomOn ? "Zoom: ON (double-click to toggle LF/HF)" : "Zoom";
+    psdZoomCenter = "LF";
+    renderResultGraph();
+  }
+
+  document.addEventListener("dblclick", () => {
+    if (activeTab !== "psd" || !psdZoomOn) return;
+    psdZoomCenter = (psdZoomCenter==="LF") ? "HF" : "LF";
+    psdZoomBtn.textContent = `Zoom: ON (${psdZoomCenter} center)`;
+    renderResultGraph();
+  });
+
+  // =========================================================
+  // Metrics + Rolling segmentation (absolute timestamps)
+  // =========================================================
+  function computeWindowMetrics(){
+    if (!analysisSeries) return null;
+    const ibi=analysisSeries.ibi;
+    const hr=analysisSeries.hr;
+
+    const meanHR=avg(hr);
+    const meanIBI=avg(ibi);
+    const sdnn=std(ibi);
+    const rmssd=calcRMSSD(ibi);
+    const pnn50=calcPNN50(ibi);
+
+    const psd=periodogram(ibi, 1.0);
+    const lf=bandPower(psd.freq, psd.pow, 0.04, 0.15);
+    const hf=bandPower(psd.freq, psd.pow, 0.15, 0.40);
+    const lfhf = (hf>1e-9) ? (lf/hf) : NaN;
+
+    const sd = calcSD1SD2(ibi);
+    const ellipseArea = Math.PI * sd.sd2 * sd.sd1;
+    const rotationDeg = 45;
+    const peaks = findBandPeaks(psd.freq, psd.pow);
+
+    const startAbs = analysisSeries.startSecAbs;
+    const endAbs   = analysisSeries.endSecAbs;
+    const selDurSec = Math.max(0, endAbs - startAbs);
+
+    return {
+      ibi, hr, meanHR, meanIBI, sdnn, rmssd, pnn50, psd, lf, hf, lfhf,
+      sd1: sd.sd1, sd2: sd.sd2, muX: sd.muX, muY: sd.muY,
+      ellipseArea, rotationDeg, peaks,
+      startAbs, endAbs, selDurSec
+    };
+  }
+
+  function rollingWindows(durationSec, winSec, stepSec){
+    const windows = [];
+    let t0 = 0;
+    while (t0 + winSec <= durationSec + 1e-9){
+      windows.push({t0, t1: t0 + winSec, stepSec});
+      t0 += stepSec;
+      if (windows.length > 5000) break;
+    }
+    if (!windows.length){
+      windows.push({t0:0, t1: Math.min(winSec, durationSec), stepSec});
+    }
+    return windows;
+  }
+
+  function updateSegmentTable(m){
+    if (!m){
+      segmentTableBody.innerHTML = `<tr><td colspan="13" class="muted">Generated after analysis.</td></tr>`;
+      lastSegments=null;
+      segmentInfoText.textContent = "Download the segment table as CSV.";
+      return;
+    }
+
+    const winSec = Number(windowSel.value);
+    const stepSec = clamp(Number(stepSecInput.value||1), 1, Math.max(1, winSec));
+
+    const durSec = Math.max(0, m.selDurSec);
+    const selStartAbs = m.startAbs;
+
+    const winsAll = rollingWindows(durSec, winSec, stepSec);
+    const wins = winsAll.slice(0, SEGMENT_TABLE_DISPLAY_LIMIT);
+
+    segmentInfoText.textContent =
+      `Selection [${fmt(selStartAbs,1)}s–${fmt(m.endAbs,1)}s] (len=${fmt(durSec,1)}s) · Window=${winSec}s · Step=${stepSec}s → Total=${winsAll.length}, Displayed=${wins.length}`;
+
+    const ibi=m.ibi;
+    const hr=m.hr;
+    const L=ibi.length;
+
+    const rows=[];
+    const segData=[];
+
+    for (let i=0;i<wins.length;i++){
+      const w = wins[i];
+
+      const absT0 = selStartAbs + w.t0;
+      const absT1 = selStartAbs + w.t1;
+
+      const segStartFrac = (durSec>0) ? (w.t0 / durSec) : 0;
+      const segEndFrac   = (durSec>0) ? (w.t1 / durSec) : 1;
+
+      const a = clamp(Math.floor(L * segStartFrac), 0, L-1);
+      const b = clamp(Math.floor(L * segEndFrac), 0, L);
+
+      const segIBI = ibi.slice(a, Math.max(a+2,b));
+      const segHR  = hr.slice(a, Math.max(a+2,b));
+
+      const meanHR = avg(segHR);
+      const meanIBI = avg(segIBI);
+
+      const sdnn=std(segIBI);
+      const rmssd=calcRMSSD(segIBI);
+      const pnn50=calcPNN50(segIBI);
+
+      const psd=periodogram(segIBI, 1.0);
+      const lf=bandPower(psd.freq, psd.pow, 0.04, 0.15);
+      const hf=bandPower(psd.freq, psd.pow, 0.15, 0.40);
+      const lfhf=(hf>1e-9)?(lf/hf):NaN;
+
+      const leftPct = clamp((w.t0 / Math.max(0.0001,durSec)) * 100, 0, 100);
+      const widthPct = clamp((winSec / Math.max(0.0001,durSec)) * 100, 0, 100);
+
+      rows.push(`
+        <tr>
+          <td>${i+1}</td>
+          <td>
+            <div class="timeline" title="abs=${fmt(absT0,1)}–${fmt(absT1,1)} sec">
+              <div class="timeline-window" style="left:${leftPct}%; width:${widthPct}%;"></div>
+            </div>
+          </td>
+          <td class="muted">${fmt(absT0,1)}–${fmt(absT1,1)}</td>
+          <td class="muted">W=${winSec}s / S=${stepSec}s</td>
+          <td class="muted">${a}–${Math.max(a+1,b)} (n=${segIBI.length})</td>
+          <td>${fmt(meanHR,1)}</td>
+          <td>${fmt(meanIBI,0)}</td>
+          <td>${fmt(sdnn,1)}</td>
+          <td>${fmt(rmssd,1)}</td>
+          <td>${fmt(pnn50,1)}</td>
+          <td>${fmt(lf,3)}</td>
+          <td>${fmt(hf,3)}</td>
+          <td>${isFinite(lfhf)?fmt(lfhf,2):"—"}</td>
+        </tr>
+      `);
+
+      segData.push({
+        seg: i+1,
+        video_time_start_sec_abs: absT0,
+        video_time_end_sec_abs: absT1,
+        selection_start_sec_abs: selStartAbs,
+        selection_end_sec_abs: m.endAbs,
+        selection_len_sec: durSec,
+        window_length_sec: winSec,
+        step_sec: stepSec,
+        sample_start: a,
+        sample_end: Math.max(a+1,b),
+        n: segIBI.length,
+        mean_hr_bpm: meanHR,
+        mean_ibi_ms: meanIBI,
+        sdnn_ms: sdnn,
+        rmssd_ms: rmssd,
+        pnn50_pct: pnn50,
+        lf_power: lf,
+        hf_power: hf,
+        lf_hf: lfhf
+      });
+    }
+
+    segmentTableBody.innerHTML = rows.join("");
+    lastSegments = segData;
+  }
+
+  function downloadSegmentsCSV(){
+    if (!lastSegments || !lastSegments.length){
+      alert("No segment data available. Run analysis first.");
+      return;
+    }
+    const headers = [
+      "seg",
+      "video_time_start_sec_abs","video_time_end_sec_abs",
+      "selection_start_sec_abs","selection_end_sec_abs","selection_len_sec",
+      "window_length_sec","step_sec",
+      "sample_start","sample_end","n",
+      "mean_hr_bpm","mean_ibi_ms",
+      "sdnn_ms","rmssd_ms","pnn50_pct",
+      "lf_power","hf_power","lf_hf"
+    ];
+    const lines = [headers.join(",")];
+
+    for (const r of lastSegments){
+      const row = headers.map(k => {
+        const v = r[k];
+        if (v === null || v === undefined) return "";
+        if (!isFinite(v) && typeof v === "number") return "";
+        if (typeof v === "number") return String(Number(v).toFixed(6));
+        return `"${String(v).replaceAll('"','""')}"`;
+      });
+      lines.push(row.join(","));
+    }
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "segments_rolling_abs_time_displayed30.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // =========================================================
+  // KPIs + Poincaré stats
+  // =========================================================
+  function updateWindowKPIs(m){
+    const set=(id,v)=>document.getElementById(id).textContent=v;
+    if (!m){
+      ["m_hr","m_ibi","m_sdnn","m_rmssd","m_pnn50","m_lfhf","m_lf","m_hf"].forEach(id=>set(id,"—"));
+      return;
+    }
+    set("m_hr", fmt(m.meanHR,1));
+    set("m_ibi", fmt(m.meanIBI,0));
+    set("m_sdnn", fmt(m.sdnn,1));
+    set("m_rmssd", fmt(m.rmssd,1));
+    set("m_pnn50", fmt(m.pnn50,1));
+    set("m_lfhf", isFinite(m.lfhf)?fmt(m.lfhf,2):"—");
+    set("m_lf", fmt(m.lf,3));
+    set("m_hf", fmt(m.hf,3));
+  }
+
+  function updatePoincareStats(m){
+    if (!m){
+      poincareStatsBody.innerHTML = `<tr><td>SD1 / SD2</td><td>—</td><td class="muted">—</td></tr>`;
+      return;
+    }
+    poincareStatsBody.innerHTML = `
+      <tr><td>SD1 / SD2</td><td>${fmt(m.sd1,1)} / ${fmt(m.sd2,1)} ms</td><td class="muted">Poincaré-based (approx.)</td></tr>
+      <tr><td>Ellipse Area</td><td>${fmt(m.ellipseArea,1)} ms²</td><td class="muted">π · SD1 · SD2</td></tr>
+      <tr><td>Rotation Angle</td><td>${m.rotationDeg}°</td><td class="muted">SD2 axis: y=x direction (standard)</td></tr>
+      <tr><td>Center (μx, μy)</td><td>${fmt(m.muX,0)} , ${fmt(m.muY,0)} ms</td><td class="muted">Mean of IBI[n], IBI[n+1]</td></tr>
+    `;
+  }
+
+  // =========================================================
+  // Graph rendering
+  // =========================================================
+  function renderAnalysisGraph(){
+    if (!analysisSeries) return;
+    const canvas=document.getElementById("analysisCanvas");
+    const ctx=canvas.getContext("2d");
+    const {w,h}=fitCanvasToCSS(canvas);
+    ctx.clearRect(0,0,w,h);
+
+    const pad=28;
+    drawAxes(ctx,w,h,pad);
+
+    const {hr,ibi}=analysisSeries;
+    const hrMin=Math.min(...hr), hrMax=Math.max(...hr);
+    const ibMin=Math.min(...ibi), ibMax=Math.max(...ibi);
+
+    const mapX=(i)=> pad + (w-2*pad) * (i/(hr.length-1||1));
+    const mid=pad+(h-2*pad)/2;
+    const mapYhr=(v)=> pad + (mid-pad)*(1-(v-hrMin)/(hrMax-hrMin||1));
+    const mapYib=(v)=> mid + (h-pad-mid)*(1-(v-ibMin)/(ibMax-ibMin||1));
+
+    drawLineIndex(ctx, hr, mapX, mapYhr, "#60a5fa", 2.5);
+    drawLineIndex(ctx, ibi, mapX, mapYib, "#34d399", 2.5);
+
+    ctx.save();
+    ctx.strokeStyle="rgba(148,163,184,0.25)";
+    ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad,mid); ctx.lineTo(w-pad,mid); ctx.stroke();
+    ctx.restore();
+  }
+
+  function renderResultGraph(){
+    const canvas=document.getElementById("resultCanvas");
+    const ctx=canvas.getContext("2d");
+    const {w,h}=fitCanvasToCSS(canvas);
+    ctx.clearRect(0,0,w,h);
+
+    const pad=28;
+    drawAxes(ctx,w,h,pad);
+
+    const m=computeWindowMetrics();
+    if (!m){
+      ctx.save(); ctx.fillStyle="rgba(203,213,225,0.9)"; ctx.font="14px system-ui";
+      ctx.fillText("No analysis yet. Go back and run 'Run Analysis'.", pad, pad+20);
+      ctx.restore();
+      return;
+    }
+
+    if (activeTab==="ts") drawTimeSeries(ctx,w,h,pad,m);
+    else if (activeTab==="poincare") drawPoincareSD(ctx,w,h,pad,m);
+    else drawPSD(ctx,w,h,pad,m);
+  }
+
+  function drawTimeSeries(ctx,w,h,pad,m){
+    const win=windowSel.value, stat=statSel.value;
+    const k=(win==="30")?3:7;
+    const series=smooth(m.ibi, k);
+
+    const yMin=Math.min(...series), yMax=Math.max(...series);
+    const mapX=(i)=> pad + (w-2*pad) * (i/(series.length-1||1));
+    const mapY=(v)=> pad + (h-2*pad) * (1-(v-yMin)/(yMax-yMin||1));
+
+    drawLineIndex(ctx, series, mapX, mapY, "#60a5fa", 2.6);
+
+    const meanVal=avg(series);
+    if (stat==="mean"){
+      drawHLine(ctx, mapY(meanVal), w, pad, "rgba(251,191,36,0.85)", [8,6]);
+    } else if (stat==="ttest"){
+      const cut=Math.floor(series.length*0.5);
+      drawHLine(ctx, mapY(avg(series.slice(0,cut))), w, pad, "rgba(251,191,36,0.85)", [10,6]);
+      drawHLine(ctx, mapY(avg(series.slice(cut))), w, pad, "rgba(251,191,36,0.55)", [10,6]);
+    } else {
+      const c1=Math.floor(series.length*0.33);
+      const c2=Math.floor(series.length*0.66);
+      drawHLine(ctx, mapY(avg(series.slice(0,c1))), w, pad, "rgba(251,191,36,0.85)", [6,6]);
+      drawHLine(ctx, mapY(avg(series.slice(c1,c2))), w, pad, "rgba(251,191,36,0.65)", [6,6]);
+      drawHLine(ctx, mapY(avg(series.slice(c2))), w, pad, "rgba(251,191,36,0.45)", [6,6]);
+    }
+  }
+
+  function drawPoincareSD(ctx,w,h,pad,m){
+    const ibi=m.ibi;
+    if (ibi.length<3) return;
+
+    const xArr=ibi.slice(0,-1);
+    const yArr=ibi.slice(1);
+
+    const xMin=Math.min(...xArr), xMax=Math.max(...xArr);
+    const yMin=Math.min(...yArr), yMax=Math.max(...yArr);
+
+    const mapX=(v)=> pad + (w-2*pad)*((v-xMin)/(xMax-xMin||1));
+    const mapY=(v)=> pad + (h-2*pad)*(1-(v-yMin)/(yMax-yMin||1));
+
+    ctx.save();
+    ctx.fillStyle="rgba(52,211,153,0.70)";
+    for (let i=0;i<xArr.length;i++){
+      ctx.beginPath(); ctx.arc(mapX(xArr[i]), mapY(yArr[i]), 2.2, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+
+    const cx=m.muX, cy=m.muY;
+    drawPoincareAxes(ctx, mapX(cx), mapY(cy), w, h, pad);
+
+    drawRotatedEllipse(ctx, mapX, mapY, cx, cy, m.sd2*2, m.sd1*2, Math.PI/4,
+      "rgba(251,191,36,0.22)", "rgba(251,191,36,0.85)"
+    );
+
+    ctx.save();
+    ctx.fillStyle="rgba(251,191,36,0.95)";
+    ctx.beginPath(); ctx.arc(mapX(cx), mapY(cy), 3.8, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPoincareAxes(ctx, cxPix, cyPix, w, h, pad){
+    ctx.save();
+    ctx.strokeStyle="rgba(251,191,36,0.55)";
+    ctx.setLineDash([6,6]);
+    ctx.lineWidth=1.2;
+
+    ctx.beginPath();
+    ctx.moveTo(pad, clamp(cyPix + (cxPix - pad), pad, h-pad));
+    ctx.lineTo(w-pad, clamp(cyPix - (w-pad - cxPix), pad, h-pad));
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(pad, clamp(cyPix - (cxPix - pad), pad, h-pad));
+    ctx.lineTo(w-pad, clamp(cyPix + (w-pad - cxPix), pad, h-pad));
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawRotatedEllipse(ctx, mapX, mapY, cx, cy, major, minor, rotRad, fill, stroke){
+    const steps=140;
+    const pts=[];
+    for (let i=0;i<=steps;i++){
+      const th=(i/steps)*2*Math.PI;
+      const ex=(major/2)*Math.cos(th);
+      const ey=(minor/2)*Math.sin(th);
+      const rx=ex*Math.cos(rotRad) - ey*Math.sin(rotRad);
+      const ry=ex*Math.sin(rotRad) + ey*Math.cos(rotRad);
+      pts.push({x:cx+rx, y:cy+ry});
+    }
+    ctx.save();
+    ctx.beginPath();
+    for (let i=0;i<pts.length;i++){
+      const px=mapX(pts[i].x), py=mapY(pts[i].y);
+      if (i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.closePath();
+    ctx.fillStyle=fill; ctx.fill();
+    ctx.strokeStyle=stroke; ctx.lineWidth=2; ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPSD(ctx,w,h,pad,m){
+    const freq=m.psd.freq, pow=m.psd.pow;
+
+    let fMin=0.0, fMax=0.5;
+    if (psdZoomOn && m.peaks){
+      const center = (psdZoomCenter==="HF") ? m.peaks.hf.f : m.peaks.lf.f;
+      fMin = Math.max(0.0, center - 0.08);
+      fMax = Math.min(0.5, center + 0.08);
+      psdZoomBtn.textContent = `Zoom: ON (${psdZoomCenter} center)`;
+    }
+
+    const idx=freq.map((f,i)=>({f,i})).filter(o=>o.f>=fMin && o.f<=fMax).map(o=>o.i);
+    const fArr=idx.map(i=>freq[i]);
+    const pArr=idx.map(i=>pow[i]);
+
+    const yMin=Math.min(...pArr), yMax=Math.max(...pArr);
+    const mapX=(f)=> pad + (w-2*pad)*((f-fMin)/(fMax-fMin||1));
+    const mapY=(p)=> pad + (h-2*pad)*(1-(p-yMin)/(yMax-yMin||1));
+
+    fillBandUnderCurve(ctx, fArr, pArr, mapX, mapY, pad, h, 0.04, 0.15, "rgba(251,191,36,0.18)");
+    fillBandUnderCurve(ctx, fArr, pArr, mapX, mapY, pad, h, 0.15, 0.40, "rgba(251,191,36,0.10)");
+
+    ctx.save();
+    ctx.strokeStyle="#60a5fa";
+    ctx.lineWidth=2.4;
+    ctx.lineJoin="round";
+    ctx.lineCap="round";
+    ctx.beginPath();
+    for (let i=0;i<fArr.length;i++){
+      const x=mapX(fArr[i]), y=mapY(pArr[i]);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    if (m.peaks){
+      drawPeakMarker(ctx, w, h, pad, mapX, mapY, m.peaks.lf.f, m.peaks.lf.p, "rgba(52,211,153,0.95)", "LF peak");
+      drawPeakMarker(ctx, w, h, pad, mapX, mapY, m.peaks.hf.f, m.peaks.hf.p, "rgba(244,114,182,0.95)", "HF peak");
+      if (psdZoomOn){
+        const c = (psdZoomCenter==="HF") ? m.peaks.hf.f : m.peaks.lf.f;
+        ctx.save();
+        ctx.strokeStyle="rgba(251,191,36,0.75)";
+        ctx.lineWidth=2.0;
+        ctx.beginPath(); ctx.moveTo(mapX(c), pad); ctx.lineTo(mapX(c), h-pad); ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawPeakMarker(ctx, w, h, pad, mapX, mapY, f, p, color, label){
+    const x=mapX(f);
+    if (x < pad-2 || x > w-pad+2) return;
+    const y=mapY(p);
+
+    ctx.save();
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.arc(x,y,4.2,0,Math.PI*2); ctx.fill();
+
+    ctx.strokeStyle=color.replace("0.95","0.75");
+    ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,h-pad); ctx.stroke();
+
+    ctx.fillStyle="rgba(203,213,225,0.92)";
+    ctx.font="12px system-ui";
+    ctx.fillText(`${label}: ${fmt(f,2)} Hz`, clamp(x+8, pad, w-pad-160), clamp(y-10, pad+12, h-pad-12));
+    ctx.restore();
+  }
+
+  function fillBandUnderCurve(ctx, fArr, pArr, mapX, mapY, pad, h, f1, f2, fillColor){
+    const pts=[];
+    for (let i=0;i<fArr.length;i++){
+      if (fArr[i]>=f1 && fArr[i]<=f2) pts.push({x:fArr[i], y:pArr[i]});
+    }
+    if (pts.length<2) return;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(mapX(pts[0].x), h-pad);
+    for (let i=0;i<pts.length;i++) ctx.lineTo(mapX(pts[i].x), mapY(pts[i].y));
+    ctx.lineTo(mapX(pts[pts.length-1].x), h-pad);
+    ctx.closePath();
+    ctx.fillStyle=fillColor;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function findBandPeaks(freq, pow){
+    return { lf: peakInBand(freq,pow,0.04,0.15), hf: peakInBand(freq,pow,0.15,0.40) };
+  }
+  function peakInBand(freq, pow, a, b){
+    let bestI=-1;
+    for (let i=0;i<freq.length;i++){
+      const f=freq[i];
+      if (f<a || f>b) continue;
+      if (bestI<0 || pow[i] > pow[bestI]) bestI=i;
+    }
+    if (bestI<0) return {f: NaN, p: NaN};
+    return {f: freq[bestI], p: pow[bestI]};
+  }
+
+  // =========================================================
+  // Canvas utilities
+  // =========================================================
+  function fitCanvasToCSS(canvas){
+    const rect=canvas.getBoundingClientRect();
+    const dpr=Math.max(1, Math.floor(window.devicePixelRatio||1));
+    const w=Math.max(300, Math.floor(rect.width*dpr));
+    const h=Math.max(160, Math.floor(rect.height*dpr));
+    if (canvas.width!==w || canvas.height!==h){canvas.width=w; canvas.height=h;}
+    return {w,h,dpr};
+  }
+  function drawAxes(ctx,w,h,pad){
+    ctx.save();
+    ctx.strokeStyle="rgba(148,163,184,0.25)";
+    ctx.lineWidth=1;
+    const rows=4, cols=6;
+    for (let i=0;i<=rows;i++){
+      const y=pad+(h-2*pad)*(i/rows);
+      ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(w-pad,y); ctx.stroke();
+    }
+    for (let i=0;i<=cols;i++){
+      const x=pad+(w-2*pad)*(i/cols);
+      ctx.beginPath(); ctx.moveTo(x,pad); ctx.lineTo(x,h-pad); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawLineIndex(ctx, ys, mapX, mapY, color, width=2){
+    ctx.save();
+    ctx.strokeStyle=color;
+    ctx.lineWidth=width;
+    ctx.lineJoin="round"; ctx.lineCap="round";
+    ctx.beginPath();
+    for (let i=0;i<ys.length;i++){
+      const x=mapX(i), y=mapY(ys[i]);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawHLine(ctx, y, w, pad, color, dash=[6,6]){
+    ctx.save();
+    ctx.strokeStyle=color;
+    ctx.setLineDash(dash);
+    ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(w-pad,y); ctx.stroke();
+    ctx.restore();
+  }
+
+  // =========================================================
+  // HRV + PSD utilities (mock)
+  // =========================================================
+  function avg(arr){ if (!arr||!arr.length) return 0; return arr.reduce((a,b)=>a+b,0)/arr.length; }
+  function std(arr){
+    if (!arr||arr.length<2) return 0;
+    const m=avg(arr);
+    const v=arr.reduce((s,x)=>s+(x-m)*(x-m),0)/(arr.length-1);
+    return Math.sqrt(v);
+  }
+  function calcRMSSD(ibi){
+    if (ibi.length<2) return 0;
+    let s=0,c=0;
+    for (let i=1;i<ibi.length;i++){
+      const d=ibi[i]-ibi[i-1];
+      s+=d*d; c++;
+    }
+    return Math.sqrt(s/c);
+  }
+  function calcPNN50(ibi){
+    if (ibi.length<2) return 0;
+    let c=0;
+    for (let i=1;i<ibi.length;i++) if (Math.abs(ibi[i]-ibi[i-1])>50) c++;
+    return 100*(c/(ibi.length-1));
+  }
+  function smooth(arr,k){
+    k=Math.max(1, Math.floor(k));
+    const out=new Array(arr.length);
+    const half=Math.floor(k/2);
+    for (let i=0;i<arr.length;i++){
+      let s=0,c=0;
+      for (let j=i-half;j<=i+half;j++){
+        if (j>=0 && j<arr.length){ s+=arr[j]; c++; }
+      }
+      out[i]=s/c;
+    }
+    return out;
+  }
+  function calcSD1SD2(ibi){
+    const x=ibi.slice(0,-1);
+    const y=ibi.slice(1);
+    const muX=avg(x), muY=avg(y);
+
+    const diffs=[];
+    for (let i=1;i<ibi.length;i++) diffs.push(ibi[i]-ibi[i-1]);
+    const sdDiff=std(diffs);
+
+    const sdnn=std(ibi);
+    const sd1=Math.sqrt(0.5)*sdDiff;
+    const sd2sq=Math.max(0, 2*sdnn*sdnn - 0.5*sdDiff*sdDiff);
+    const sd2=Math.sqrt(sd2sq);
+    return {sd1, sd2, muX, muY};
+  }
+  function periodogram(x, fs){
+    const xm=x.map(v=>v-avg(x));
+    const N=Math.min(256, xm.length);
+    const slice=xm.slice(0,N);
+    const outFreq=[], outPow=[];
+    const K=Math.floor(N/2);
+    for (let k=0;k<=K;k++){
+      let re=0, im=0;
+      for (let n=0;n<N;n++){
+        const ang=2*Math.PI*k*n/N;
+        re += slice[n]*Math.cos(ang);
+        im -= slice[n]*Math.sin(ang);
+      }
+      const p=(re*re+im*im)/N;
+      outFreq.push(k*fs/N);
+      outPow.push(p);
+    }
+    return {freq:outFreq, pow:outPow};
+  }
+  function bandPower(freq,pow,f1,f2){
+    let s=0;
+    for (let i=1;i<freq.length;i++){
+      const f0=freq[i-1], f=freq[i];
+      if (f<f1 || f0>f2) continue;
+      const a=Math.max(f0,f1), b=Math.min(f,f2);
+      const w=Math.max(0,b-a);
+      const p=(pow[i-1]+pow[i])/2;
+      s+=p*w;
+    }
+    return s;
+  }
+
+  // =========================================================
+  // Random + misc
+  // =========================================================
+  // =========================================================
+  // Group test math utilities
+  // =========================================================
+  function welchTTestTwoGroups(g1, g2){
+    const x = g1.values || [];
+    const y = g2.values || [];
+    if (x.length < 2 || y.length < 2){
+      return { t: NaN, df: NaN, p: NaN };
+    }
+
+    const m1 = avg(x), m2 = avg(y);
+    const v1 = varianceSample(x), v2 = varianceSample(y);
+    const n1 = x.length, n2 = y.length;
+    const a = v1 / n1;
+    const b = v2 / n2;
+    const denom = Math.sqrt(a + b);
+    if (!isFinite(denom) || denom <= 0){
+      return { t: NaN, df: NaN, p: NaN };
+    }
+
+    const t = (m1 - m2) / denom;
+    const dfNum = (a + b) * (a + b);
+    const dfDen = ((a * a) / (n1 - 1)) + ((b * b) / (n2 - 1));
+    const df = dfDen > 0 ? (dfNum / dfDen) : NaN;
+    const p = (isFinite(df) && df > 0) ? 2 * (1 - studentTCdf(Math.abs(t), df)) : NaN;
+    return { t, df, p };
+  }
+
+  function oneWayAnova(groups){
+    const cleaned = (groups || []).filter(g => (g.values || []).length > 0);
+    const k = cleaned.length;
+    const n = cleaned.reduce((s, g) => s + g.values.length, 0);
+    if (k < 2 || n <= k){
+      return { f: NaN, df1: NaN, df2: NaN, p: NaN };
+    }
+
+    const all = [];
+    cleaned.forEach(g => all.push(...g.values));
+    const grand = avg(all);
+    let ssBetween = 0;
+    let ssWithin = 0;
+
+    for (const g of cleaned){
+      const m = avg(g.values);
+      ssBetween += g.values.length * Math.pow(m - grand, 2);
+      ssWithin += (g.values.length - 1) * varianceSample(g.values);
+    }
+
+    const df1 = k - 1;
+    const df2 = n - k;
+    if (df1 <= 0 || df2 <= 0){
+      return { f: NaN, df1, df2, p: NaN };
+    }
+
+    const msBetween = ssBetween / df1;
+    const msWithin = ssWithin / df2;
+    const f = msWithin > 0 ? (msBetween / msWithin) : NaN;
+    const p = (isFinite(f) && f >= 0) ? (1 - fCdf(f, df1, df2)) : NaN;
+    return { f, df1, df2, p };
+  }
+
+  function varianceSample(arr){
+    if (!arr || arr.length < 2) return 0;
+    const m = avg(arr);
+    let s = 0;
+    for (const x of arr) s += (x - m) * (x - m);
+    return s / (arr.length - 1);
+  }
+
+  function studentTCdf(t, v){
+    if (!isFinite(t) || !isFinite(v) || v <= 0) return NaN;
+    const x = v / (v + t * t);
+    const ib = regularizedIncompleteBeta(x, v / 2, 0.5);
+    if (!isFinite(ib)) return NaN;
+    return t >= 0 ? (1 - 0.5 * ib) : (0.5 * ib);
+  }
+
+  function fCdf(f, d1, d2){
+    if (!isFinite(f) || !isFinite(d1) || !isFinite(d2) || f < 0 || d1 <= 0 || d2 <= 0) return NaN;
+    const x = (d1 * f) / (d1 * f + d2);
+    return regularizedIncompleteBeta(x, d1 / 2, d2 / 2);
+  }
+
+  function regularizedIncompleteBeta(x, a, b){
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    if (!isFinite(x) || !isFinite(a) || !isFinite(b) || a <= 0 || b <= 0) return NaN;
+
+    const lnB = logGamma(a) + logGamma(b) - logGamma(a + b);
+    const front = Math.exp(a * Math.log(x) + b * Math.log(1 - x) - lnB);
+
+    if (x < (a + 1) / (a + b + 2)){
+      return front * betaContinuedFraction(a, b, x) / a;
+    }
+    return 1 - (front * betaContinuedFraction(b, a, 1 - x) / b);
+  }
+
+  function betaContinuedFraction(a, b, x){
+    const maxIter = 200;
+    const eps = 3e-12;
+    const fpMin = 1e-30;
+
+    let qab = a + b;
+    let qap = a + 1;
+    let qam = a - 1;
+    let c = 1;
+    let d = 1 - qab * x / qap;
+    if (Math.abs(d) < fpMin) d = fpMin;
+    d = 1 / d;
+    let h = d;
+
+    for (let m = 1; m <= maxIter; m++){
+      const m2 = 2 * m;
+      let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d;
+      if (Math.abs(d) < fpMin) d = fpMin;
+      c = 1 + aa / c;
+      if (Math.abs(c) < fpMin) c = fpMin;
+      d = 1 / d;
+      h *= d * c;
+
+      aa = -((a + m) * (qab + m) * x) / ((a + m2) * (qap + m2));
+      d = 1 + aa * d;
+      if (Math.abs(d) < fpMin) d = fpMin;
+      c = 1 + aa / c;
+      if (Math.abs(c) < fpMin) c = fpMin;
+      d = 1 / d;
+      const del = d * c;
+      h *= del;
+      if (Math.abs(del - 1) < eps) break;
+    }
+    return h;
+  }
+
+  function logGamma(z){
+    const p = [
+      0.9999999999998099,
+      676.5203681218851,
+      -1259.1392167224028,
+      771.3234287776531,
+      -176.6150291621406,
+      12.507343278686905,
+      -0.13857109526572012,
+      9.984369578019571e-6,
+      1.5056327351493116e-7
+    ];
+    if (z < 0.5){
+      return Math.log(Math.PI) - Math.log(Math.sin(Math.PI * z)) - logGamma(1 - z);
+    }
+    z -= 1;
+    let x = p[0];
+    for (let i = 1; i < p.length; i++) x += p[i] / (z + i);
+    const t = z + p.length - 0.5;
+    return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+  }
+
+  function dummyHash01(s){
+    let h = 2166136261 >>> 0;
+    const str = String(s);
+    for (let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0) / 4294967295;
+  }
+
+  function rand01(){ seed=(seed*1664525+1013904223) % 4294967296; return seed/4294967296; }
+  function fmt(v,d){ if(!isFinite(v)) return "—"; return Number(v).toFixed(d); }
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
+  }
+
+  // Resize rerender
+  window.addEventListener('resize', () => {
+    if (!analysisGraph.classList.contains('hidden') && analysisSeries) renderAnalysisGraph();
+    renderResultGraph();
+    updatePlayheadFromVideo();
+  });
+</script>
+
+</body>
+</html>
+
+
+
+

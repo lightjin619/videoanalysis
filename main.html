@@ -275,7 +275,7 @@
     <div class="hint" style="margin-top:10px">Nested JSON metadata summary (mock).</div>
   </div>
 
-  <p class="hint">Workflow mock: load video, set interval, analyze, and review results.</p>
+  <p class="hint">MediaPipe 얼굴 검출 → 유효 RGB 추출 → 연속 구간 POS 분석</p>
 
   <!-- Select video -->
   <input id="videoFileInput" type="file" accept="video/*" class="hidden"/>
@@ -675,6 +675,7 @@
   });
 
   function go(id){
+    if (id !== "workspace") realAnalysisAbort?.abort();
     document.querySelectorAll("section").forEach(s=>s.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
   }
@@ -1259,6 +1260,8 @@
   // Workspace open
   // =========================================================
   function openWorkspace(parentId, childId){
+    realAnalysisAbort?.abort();
+    document.getElementById("posReport")?.remove();
     currentParent = parents.find(x=>x.id===parentId) || currentParent;
     currentChild = (currentParent?.children || []).find(x=>x.id===childId) || null;
 
@@ -1319,10 +1322,36 @@
   videoFileInput.addEventListener("change", async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
+    realAnalysisAbort?.abort();
+    document.getElementById("posReport")?.remove();
 
     if (currentVideoObjectURL) URL.revokeObjectURL(currentVideoObjectURL);
     currentVideoObjectURL = URL.createObjectURL(file);
 
+    // Register metadata handling before loading the new video.
+    previewVideo.onloadedmetadata = () => {
+      const d = Number(previewVideo.duration || 0);
+      currentVideoDurationSec = (isFinite(d) && d > 0) ? d : 60;
+
+      configureDualSliderForSeconds(currentVideoDurationSec);
+
+      // default select full
+      rangeMin.value = "0";
+      rangeMax.value = String(currentVideoDurationSec);
+      updateDualHandleSeconds();
+
+      // show playhead
+      playhead.style.display = "block";
+      updatePlayheadFromVideo();
+
+      // Real analysis is performed only after face selection.
+      fullSeries = null;
+
+      // Reset analysis outputs
+      analysisGraph.classList.add("hidden");
+      analysisSeries=null;
+      lastSegments=null;
+    };
     // Load into preview video
     previewVideo.src = currentVideoObjectURL;
     previewVideo.load();
@@ -1342,30 +1371,7 @@
       thumbPlaceholder.textContent = "Failed to generate thumbnail (codec not supported in this browser).";
     }
 
-    // When metadata is loaded, we configure slider and make full-series mock
-    previewVideo.onloadedmetadata = () => {
-      const d = Number(previewVideo.duration || 0);
-      currentVideoDurationSec = (isFinite(d) && d > 0) ? d : 60;
 
-      configureDualSliderForSeconds(currentVideoDurationSec);
-
-      // default select full
-      rangeMin.value = "0";
-      rangeMax.value = String(currentVideoDurationSec);
-      updateDualHandleSeconds();
-
-      // show playhead
-      playhead.style.display = "block";
-      updatePlayheadFromVideo();
-
-      // Build mock series for entire video timeline (capped)
-      fullSeries = buildFullMockSeries(currentVideoDurationSec);
-
-      // Reset analysis outputs
-      analysisGraph.classList.add("hidden");
-      analysisSeries=null;
-      lastSegments=null;
-    };
   });
 
   function captureVideoThumbnail(objectURL, seekSec = 0.5) {
@@ -1499,32 +1505,86 @@
   function openPersonModal(){ personModal.classList.remove("hidden"); }
   function closePersonModal(){ personModal.classList.add("hidden"); }
 
-  function startAnalysis(){
+  let realAnalysisBusy = false;
+  let realAnalysisAbort = null;
+  async function startAnalysis(){
     closePersonModal();
-
-    if (!fullSeries) fullSeries = buildFullMockSeries(currentVideoDurationSec || 60);
-
-    analysisSeries = sliceSeriesBySeconds(fullSeries, selectedStartSec, selectedEndSec);
-
-    analysisGraph.classList.remove("hidden");
-    renderAnalysisGraph();
-
-    setTimeout(() => {
-      psdZoomOn=false;
-      psdZoomCenter="LF";
-      setTab("ts", true);
-
-      const m=computeWindowMetrics();
-      const selectedPersonEl = document.querySelector('input[name="p"]:checked');
-      const selectedPerson = selectedPersonEl ? selectedPersonEl.value : "Unknown";
-      saveAnalysisToCurrentChild(m, selectedPerson);
-      updateWindowKPIs(m);
-      updatePoincareStats(m);
-      updateSegmentTable(m);
-      renderResultGraph();
-
-      go("results");
-    }, 250);
+    if(realAnalysisBusy)return;
+    if(!previewVideo.src || selectedEndSec-selectedStartSec<8){
+      alert("비디오를 불러오고 최소 8초 구간을 선택하세요.");return;
+    }
+    realAnalysisBusy=true;
+    const source=previewVideo.src,start=selectedStartSec,end=selectedEndSec;
+    const controller=new AbortController();realAnalysisAbort=controller;
+    analysisSeries=null; // The legacy mock HRV results must never represent real POS data.
+    analysisGraph.classList.add("hidden");
+    let report=document.getElementById("posReport");
+    if(!report){
+      report=document.createElement("div");report.id="posReport";report.className="graphBox";
+      analysisGraph.parentNode.insertBefore(report,analysisGraph);
+    }
+    report.replaceChildren();
+    const status=document.createElement("p");report.appendChild(status);
+    const select=document.createElement("select");report.appendChild(select);
+    select.hidden=true;select.setAttribute("aria-label","분석할 얼굴");
+    const begin=document.createElement("button");begin.textContent="선택한 얼굴 분석";begin.hidden=true;report.appendChild(begin);
+    const cancel=document.createElement("button");cancel.textContent="취소";cancel.className="secondary";report.appendChild(cancel);
+    let extractor;
+    const originalControls=previewVideo.controls;
+    previewVideo.controls=false;
+    const check=()=>{if(controller.signal.aborted || previewVideo.src!==source)throw new DOMException("Cancelled","AbortError");};
+    cancel.onclick=()=>controller.abort();
+    try {
+      status.textContent="MediaPipe 얼굴 검출 중…";
+      const api=await import("./public/rppg.mjs");
+      await api.loadFaceMesh();check();
+      extractor=new api.FaceSignalExtractor();
+      previewVideo.pause();
+      await api.seekFrame(previewVideo,start,controller.signal);check();
+      const boxes=await extractor.detect(previewVideo);check();
+      if(!boxes.length)throw new Error("얼굴을 찾지 못했습니다. 시작점을 조정하세요.");
+      boxes.forEach((box,index)=>{
+        const option=document.createElement("option");option.value=String(index);
+        option.textContent=`얼굴 ${index+1} · 화면 가로 ${Math.round((box.x+box.width/2)*100)}%, 세로 ${Math.round((box.y+box.height/2)*100)}%`;
+        select.appendChild(option);
+      });
+      select.hidden=false;begin.hidden=false;
+      status.textContent="얼굴 위치를 확인하고 분석할 얼굴을 선택하세요.";
+      await new Promise((resolve,reject)=>{
+        const abort=()=>{controller.signal.removeEventListener("abort",abort);reject(new DOMException("Cancelled","AbortError"));};
+        controller.signal.addEventListener("abort",abort,{once:true});
+        begin.onclick=()=>{controller.signal.removeEventListener("abort",abort);resolve();};
+      });
+      check();extractor.select(Number(select.value));select.disabled=true;begin.hidden=true;
+      const samples=[];let accepted=0;
+      for(let i=0;start+i/api.SAMPLE_RATE<end;i++){
+        check();const t=start+i/api.SAMPLE_RATE;
+        await api.seekFrame(previewVideo,t,controller.signal);check();
+        const sample=await extractor.sample(previewVideo,t);check();
+        samples.push(sample);if(sample)accepted++;
+        if(i%30===0)status.textContent=`프레임 검사 ${(t-start).toFixed(1)}/${(end-start).toFixed(1)}초 · RGB ${accepted}/${samples.length}`;
+      }
+      const windows=api.analyzeSamples(samples);check();
+      status.textContent=windows.length ? `완료 · 유효 8초 구간 ${windows.length}개 · RGB ${accepted}/${samples.length}프레임` :
+        "분석 가능한 연속 신호가 없습니다. 얼굴·조명·움직임을 확인하세요.";
+      for(const window of windows){
+        const label=document.createElement("p");
+        label.textContent=`${window.start.toFixed(2)}–${window.end.toFixed(2)}초 · 추정 심박수 ${window.bpm.toFixed(1)} BPM · 신호 집중도 ${Math.round(window.quality*100)}%`;
+        report.appendChild(label);
+        const canvas=document.createElement("canvas");canvas.width=900;canvas.height=180;report.appendChild(canvas);
+        const ctx=canvas.getContext("2d");ctx.strokeStyle="#34d399";ctx.lineWidth=2;ctx.beginPath();
+        window.pulse.forEach((v,i)=>{const x=i*900/(window.pulse.length-1),y=90-clamp(v,-4,4)*20;if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y);});ctx.stroke();
+      }
+      const note=document.createElement("p");note.className="hint";
+      note.textContent="얼굴·RGB·신호 품질 검사를 통과한 구간만 표시합니다. 누락 구간을 연결하지 않습니다. 이 결과에서는 HRV 지표를 계산하지 않습니다.";
+      report.appendChild(note);
+    } catch(error){
+      status.textContent=controller.signal.aborted ? "분석을 취소했습니다." : "분석 실패: "+error.message;
+    } finally {
+      if(extractor)await extractor.close().catch(console.error);
+      previewVideo.controls=originalControls;
+      realAnalysisBusy=false;realAnalysisAbort=null;cancel.hidden=true;begin.hidden=true;select.disabled=true;
+    }
   }
 
   function saveAnalysisToCurrentChild(m, person){

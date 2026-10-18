@@ -4,7 +4,7 @@ import AppHeader from "@/components/AppHeader";
 
 export const metadata: Metadata = {
   title: "Video Analysis Lab",
-  description: "RGB 기반 비디오 분석 플랫폼",
+  description: "RGB-based video analysis platform",
 };
 
 export default function RootLayout({

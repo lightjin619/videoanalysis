@@ -95,6 +95,7 @@
   th,td{padding:10px 10px;border-bottom:1px solid rgba(31,41,55,.7);text-align:left;vertical-align:middle;}
   th{background:#0f172a;color:#e5e7eb;}
   td{color:#cbd5e1;}
+  select[multiple]{min-height:150px;padding:10px}
 
   select,input[type="number"]{padding:8px;border-radius:10px;background:#020617;color:#e5e7eb;border:1px solid #1f2937;}
   .inlineControls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
@@ -102,6 +103,15 @@
   .ctrlWrap{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .w240{width:240px}
   .w160{width:160px}
+  .w320{width:320px}
+  .w360{width:360px}
+  .splitGrid{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;margin-top:12px;align-items:start}
+  .stack{display:flex;flex-direction:column;gap:12px}
+  .miniCard{border:1px solid #1f2937;border-radius:12px;background:#0b1226;padding:12px}
+  .summaryList{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;margin-top:10px}
+  .summaryStat{grid-column:span 3;border:1px solid #1f2937;border-radius:10px;background:#020617;padding:10px}
+  .summaryStat .t{font-size:12px;color:#9ca3af}
+  .summaryStat .v{margin-top:4px;font-weight:700}
 
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:999;}
   .modal-box{background:#0f172a;padding:22px;border-radius:12px;width:min(920px, calc(100vw - 24px));border:1px solid #1f2937;max-height:85vh;overflow:auto;}
@@ -138,11 +148,35 @@
     border-radius:999px;
   }
 
+  .camStage{
+    position:relative;
+    width:100%;
+    max-width:720px;
+    border:1px solid #1f2937;
+    border-radius:10px;
+    overflow:hidden;
+    background:#000;
+  }
+  .camStage video,.camStage canvas{
+    width:100%;
+    height:auto;
+    display:block;
+  }
+  .camOverlay{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
   @media (max-width: 980px){
     .kpi{grid-column:span 6;}
     .field,.field.col12,.field.col4,.field.col3{grid-column:span 12;}
     .w240,.w160{width:100%}
     .timeline{width:120px}
+    .w320,.w360{width:100%}
+    .splitGrid{grid-template-columns:1fr}
+    .summaryStat{grid-column:span 6}
   }
 </style>
 </head>
@@ -260,6 +294,103 @@
         </tbody>
       </table>
     </div>
+
+    <div class="graphBox" style="margin-top:14px">
+      <div class="graphHeader">
+        <div class="title">Between-subjects and Group by Time Analysis</div>
+        <div class="muted" id="betweenSubjectSummary" style="font-size:12px">Load analyzed data, choose groups and time bins, then run between-subject analysis.</div>
+      </div>
+
+      <div class="splitGrid">
+        <div class="stack">
+          <div class="miniCard">
+            <div class="inlineControls" style="margin-top:0">
+              <div class="ctrlWrap">
+                <div class="ctrlLabel">Group By</div>
+                <select id="betweenGroupBySel" class="w240">
+                  <option value="protocol">Protocol</option>
+                  <option value="device">Device</option>
+                  <option value="operator">Operator</option>
+                  <option value="site">Site</option>
+                  <option value="person">Analyzed Person</option>
+                  <option value="sessionDate">Session Date</option>
+                </select>
+              </div>
+              <div class="ctrlWrap">
+                <div class="ctrlLabel">Metric</div>
+                <select id="betweenMetricSel" class="w240">
+                  <option value="meanHR">Mean HR</option>
+                  <option value="meanIBI">Mean IBI</option>
+                  <option value="sdnn">SDNN</option>
+                  <option value="rmssd">RMSSD</option>
+                  <option value="pnn50">pNN50</option>
+                  <option value="lfhf">LF/HF ratio</option>
+                  <option value="lf">LF Power</option>
+                  <option value="hf">HF Power</option>
+                </select>
+              </div>
+              <div class="ctrlWrap">
+                <div class="ctrlLabel">X Axis</div>
+                <select id="betweenXAxisSel" class="w240">
+                  <option value="time">Elapsed time</option>
+                  <option value="segment">Total segment (%)</option>
+                </select>
+              </div>
+              <div class="ctrlWrap">
+                <div class="ctrlLabel">Interval</div>
+                <select id="betweenIntervalSel" class="w240">
+                  <option value="30">30 sec</option>
+                  <option value="60">60 sec</option>
+                  <option value="90">90 sec</option>
+                  <option value="120">120 sec</option>
+                </select>
+              </div>
+            </div>
+            <div class="hint">Use interval bins such as 30 sec, 60 sec, and longer windows to compare RMSSD, LF/HF, and related metrics across groups.</div>
+          </div>
+
+          <div class="miniCard">
+            <div class="ctrlLabel">Time Bins / Segments</div>
+            <select id="betweenTimeSelect" class="w360" multiple size="8"></select>
+            <div class="toolbar" style="margin-top:10px">
+              <button class="secondary" onclick="selectAllBetweenSubjectBins()">Select All</button>
+              <button class="ghost" onclick="clearBetweenSubjectBins()">Clear</button>
+              <button onclick="runBetweenSubjectAnalysis()">Run Between-subjects Analysis</button>
+            </div>
+            <div class="hint">Selected bins are pooled for group comparison, while the line graph shows group-by-time trajectories across all available bins.</div>
+          </div>
+        </div>
+
+        <div class="stack">
+          <canvas id="betweenSubjectCanvas" width="1000" height="240"></canvas>
+          <canvas id="betweenSubjectCompareCanvas" width="1000" height="220"></canvas>
+          <div class="summaryList" id="betweenSubjectStats">
+            <div class="summaryStat"><div class="t">Groups</div><div class="v">—</div></div>
+            <div class="summaryStat"><div class="t">Metric</div><div class="v">—</div></div>
+            <div class="summaryStat"><div class="t">Test</div><div class="v">—</div></div>
+            <div class="summaryStat"><div class="t">p-value</div><div class="v">—</div></div>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:110px">Group</th>
+                  <th style="width:120px">Selected n</th>
+                  <th style="width:120px">Mean</th>
+                  <th style="width:120px">SD</th>
+                  <th style="width:120px">Min</th>
+                  <th style="width:120px">Max</th>
+                  <th>Time bins</th>
+                </tr>
+              </thead>
+              <tbody id="betweenSubjectTableBody">
+                <tr><td colspan="7" class="muted">Run between-subject analysis after loading analyzed data.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -284,7 +415,7 @@
     <button class="secondary" onclick="document.getElementById('videoFileInput').click()">
       Load Video
     </button>
-    <button onclick="openPersonModal()">Run Analysis</button>
+    <button onclick="startAnalysis()">Run Analysis</button>
     <button class="secondary" onclick="go('children')">Back</button>
   </div>
 
@@ -297,14 +428,39 @@
     <div id="videoLabel" class="fake-overlay">No video loaded</div>
   </div>
 
-  <!-- Video preview -->
   <div class="graphBox" style="margin-top:12px">
     <div class="graphHeader">
-      <div class="title">Video Preview</div>
-      <div class="muted" style="font-size:12px">controls enabled</div>
+      <div class="title">Video Preview + OpenCV rPPG (Multi-face ROI + POS)</div>
+      <div class="muted mono" id="cvStatus" style="font-size:12px">OpenCV: waiting</div>
     </div>
-    <video id="previewVideo" controls playsinline
-           style="width:100%; max-height:360px; border-radius:10px; background:#0b1226; border:1px solid rgba(31,41,55,.8);"></video>
+
+    <div class="inlineControls">
+      <div class="ctrlWrap">
+        <button class="secondary" onclick="detectFacesAtCurrentVideoFrame()">Detect Faces at Current Frame</button>
+        <button class="ghost" onclick="clearVideoFaceSelection()">Clear Face Selection</button>
+      </div>
+      <div class="ctrlWrap">
+        <div class="ctrlLabel">Detected Face</div>
+        <select id="faceSelect" class="w240"></select>
+      </div>
+      <div class="ctrlWrap">
+        <div class="ctrlLabel">Capture (sec)</div>
+        <input id="captureSecInput" class="w160" type="number" min="10" max="180" step="1" value="30"/>
+      </div>
+      <div class="ctrlWrap">
+        <button onclick="analyzeSelectedFaceRPPG()">Analyze Selected Face in Selected Time Range</button>
+      </div>
+    </div>
+
+    <div class="camStage" style="margin-top:10px">
+      <video id="previewVideo" controls playsinline
+             style="width:100%; max-height:420px; border-radius:10px; background:#0b1226; border:1px solid rgba(31,41,55,.8);"></video>
+      <canvas id="cameraOverlay" class="camOverlay"></canvas>
+    </div>
+    <canvas id="cameraFrame" class="hidden"></canvas>
+
+    <canvas id="rppgCanvas" width="1000" height="180" style="margin-top:10px"></canvas>
+    <div class="hint" id="rppgHint">Load a video, move to a frame with visible faces, detect/select one face, then run POS analysis in the selected time range.</div>
     <div class="hint">Local files are processed in-browser only (no server upload).</div>
   </div>
 
@@ -460,6 +616,94 @@
       </table>
     </div>
 
+    <div class="graphBox" style="margin-top:14px">
+      <div class="graphHeader">
+        <div class="title">Within-subject Segment Analysis</div>
+        <div class="muted" id="withinSubjectSummary" style="font-size:12px">Select 2 or more segments to compare one subject across time or interventions.</div>
+      </div>
+
+      <div class="splitGrid">
+        <div class="stack">
+          <div class="miniCard">
+            <div class="ctrlLabel">Segments</div>
+            <select id="withinSubjectSegmentSelect" class="w320" multiple size="8"></select>
+            <div class="toolbar" style="margin-top:10px">
+              <button class="secondary" onclick="selectAllWithinSubjectSegments()">Select All</button>
+              <button class="ghost" onclick="clearWithinSubjectSegmentSelection()">Clear</button>
+            </div>
+            <div class="hint">Use Ctrl/Cmd-click for custom selection. Recommended: compare 2-4 segments.</div>
+          </div>
+
+          <div class="miniCard">
+            <div class="inlineControls" style="margin-top:0">
+              <div class="ctrlWrap">
+                <div class="ctrlLabel">Metric</div>
+                <select id="withinSubjectMetricSel" class="w240">
+                  <option value="mean_hr_bpm">Mean HR</option>
+                  <option value="mean_ibi_ms">Mean IBI</option>
+                  <option value="sdnn_ms">SDNN</option>
+                  <option value="rmssd_ms">RMSSD</option>
+                  <option value="pnn50_pct">pNN50</option>
+                  <option value="lf_power">LF Power</option>
+                  <option value="hf_power">HF Power</option>
+                  <option value="lf_hf">LF/HF</option>
+                </select>
+              </div>
+              <div class="ctrlWrap">
+                <div class="ctrlLabel">X Axis</div>
+                <select id="withinSubjectXAxisSel" class="w240">
+                  <option value="time">Elapsed time</option>
+                  <option value="segment">Total segment (%)</option>
+                </select>
+              </div>
+              <div class="ctrlWrap">
+                <div class="ctrlLabel">Mini-bin</div>
+                <select id="withinSubjectBinSel" class="w240">
+                  <option value="5">5 sec</option>
+                  <option value="10" selected>10 sec</option>
+                  <option value="15">15 sec</option>
+                </select>
+              </div>
+            </div>
+            <div class="toolbar">
+              <button onclick="runWithinSubjectAnalysis()">Run Segment Analysis</button>
+            </div>
+            <div class="hint">Statistics use mini-bin observations inside each selected segment to compare interventions/conditions within one project.</div>
+          </div>
+        </div>
+
+        <div class="stack">
+          <canvas id="withinSubjectCanvas" width="1000" height="240"></canvas>
+          <canvas id="withinSubjectCompareCanvas" width="1000" height="220"></canvas>
+          <div class="summaryList" id="withinSubjectStats">
+            <div class="summaryStat"><div class="t">Selected</div><div class="v">—</div></div>
+            <div class="summaryStat"><div class="t">Metric</div><div class="v">—</div></div>
+            <div class="summaryStat"><div class="t">Test</div><div class="v">—</div></div>
+            <div class="summaryStat"><div class="t">p-value</div><div class="v">—</div></div>
+          </div>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:90px">Seg</th>
+                  <th style="width:180px">Abs Time</th>
+                  <th style="width:120px">n bins</th>
+                  <th style="width:120px">Mean</th>
+                  <th style="width:120px">SD</th>
+                  <th style="width:120px">Min</th>
+                  <th style="width:120px">Max</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="withinSubjectTableBody">
+                <tr><td colspan="8" class="muted">Run segment analysis after generating segments.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="hint">Note: HRV/PSD in this mock does not replace real physiological computation and is only for UI flow demonstration.</div>
   </div>
 
@@ -511,19 +755,7 @@
   </div>
 </div>
 
-<div id="personModal" class="modal hidden" aria-hidden="true">
-  <div class="modal-box" style="width:380px">
-    <h3>Select Analysis Subject</h3>
-    <p class="hint" style="margin:8px 0 0">For this mock, only Person A/B selection is used.</p>
-    <label><input type="radio" name="p" value="A" checked/> Person A</label>
-    <label><input type="radio" name="p" value="B"/> Person B</label>
-    <div class="modal-actions">
-      <button class="secondary" onclick="closePersonModal()">Cancel</button>
-      <button onclick="startAnalysis()">Confirm Selection</button>
-    </div>
-  </div>
-</div>
-
+<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 <script>
   // =========================================================
   // Schema with "path" for nested JSON storage
@@ -628,32 +860,59 @@
 
   // Segments cache for CSV
   let lastSegments=null;
+  let lastWithinSubjectResult = null;
 
   // Display limit for segment table
   const SEGMENT_TABLE_DISPLAY_LIMIT = 30;
 
   // Group test source rows from analyzed children
   let loadedAnalyzedRows = [];
+  let lastBetweenSubjectResult = null;
+
+  // OpenCV rPPG state
+  let cvReady = false;
+  let faceCascade = null;
+  let faceRects = [];
+  let selectedFaceIndex = 0;
+  let selectedFaceRect = null;
+  let rppgAnalyzing = false;
+  let lastRppgResult = null;
 
   window.addEventListener('DOMContentLoaded', () => {
     go('welcome');
-    closeProjectModal(); closePersonModal(); closeParentModal();
+    closeProjectModal(); closeParentModal();
 
     buildFormFromSchema("projectForm", PROJECT_METADATA_SCHEMA, "md_");
     buildFormFromSchema("parentForm", PARENT_METADATA_SCHEMA, "pd_");
 
     initDualHandleSeconds();
     attachResultControls();
+    attachBetweenSubjectControls();
     setTab("ts", true);
+    faceSelect.addEventListener("change", () => {
+      selectedFaceIndex = Number(faceSelect.value || 0);
+      selectedFaceRect = faceRects[selectedFaceIndex] || null;
+      drawSelectedVideoFrameOverlay();
+    });
 
     renderResultGraph();
     updateWindowKPIs(null);
     updatePoincareStats(null);
     updateSegmentTable(null);
+    resetWithinSubjectAnalysis();
+    resetBetweenSubjectAnalysis();
 
     // Playhead sync
     previewVideo.addEventListener("timeupdate", updatePlayheadFromVideo);
     previewVideo.addEventListener("seeked", updatePlayheadFromVideo);
+    previewVideo.addEventListener("seeked", () => {
+      if (rppgAnalyzing) return;
+      if (syncPreviewFrameToCanvas()) drawSelectedVideoFrameOverlay();
+    });
+    previewVideo.addEventListener("timeupdate", () => {
+      if (rppgAnalyzing) return;
+      if (syncPreviewFrameToCanvas()) drawSelectedVideoFrameOverlay();
+    });
     previewVideo.addEventListener("loadedmetadata", () => {
       const d = Number(previewVideo.duration || 0);
       if (isFinite(d) && d > 0) {
@@ -663,6 +922,8 @@
         rangeMax.value = String(currentVideoDurationSec);
         updateDualHandleSeconds();
         updatePlayheadFromVideo();
+        syncPreviewFrameToCanvas();
+        drawSelectedVideoFrameOverlay();
       }
     });
 
@@ -672,11 +933,13 @@
 
     // initial render
     renderParents();
+    initOpenCVRPPG();
   });
 
   function go(id){
     document.querySelectorAll("section").forEach(s=>s.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
+    if (id !== "workspace" && typeof clearVideoFaceSelection === "function") clearVideoFaceSelection();
   }
 
   // =========================================================
@@ -1014,6 +1277,7 @@
       groupDataInfo.textContent = "No analysis data loaded";
       groupTestSummary.textContent = "Load analyzed data first.";
       groupStatsBody.innerHTML = `<tr><td colspan="7" class="muted">No analyzed video project data yet.</td></tr>`;
+      resetBetweenSubjectAnalysis();
       return;
     }
 
@@ -1081,6 +1345,7 @@
       groupDataInfo.textContent = "No parent selected";
       groupTestSummary.textContent = "Select a parent project first.";
       groupStatsBody.innerHTML = `<tr><td colspan="7" class="muted">No analyzed video project data yet.</td></tr>`;
+      resetBetweenSubjectAnalysis();
       return;
     }
 
@@ -1101,6 +1366,7 @@
         site: getByPath(ch.meta, "session.site") || "Unknown",
         person: latest.person || "Unknown",
         isDummy: !!latest.isDummy,
+        selection: latest.selection || null,
         metrics: latest.metrics
       });
     }
@@ -1111,6 +1377,7 @@
     groupDataInfo.textContent = `Loaded ${rows.length} analyzed project(s) (real=${realCount}, dummy=${dummyCount})`;
     groupTestSummary.textContent = rows.length ? "Choose group/metric/test and run." : "No analyzed data available yet.";
     groupStatsBody.innerHTML = `<tr><td colspan="7" class="muted">${rows.length ? "Run group test to see per-group stats." : "No analyzed video project data yet."}</td></tr>`;
+    updateBetweenSubjectTimeOptions();
   }
 
   function ensureDummyAnalysesForParent(parent){
@@ -1255,6 +1522,336 @@
     }
   }
 
+  function getAnalysisMetricLabel(metricKey){
+    return ({
+      meanHR: "Mean HR",
+      meanIBI: "Mean IBI",
+      sdnn: "SDNN",
+      rmssd: "RMSSD",
+      pnn50: "pNN50",
+      lfhf: "LF/HF ratio",
+      lf: "LF Power",
+      hf: "HF Power"
+    })[metricKey] || metricKey;
+  }
+
+  function attachBetweenSubjectControls(){
+    betweenGroupBySel.addEventListener("change", rerunBetweenSubjectIfReady);
+    betweenMetricSel.addEventListener("change", rerunBetweenSubjectIfReady);
+    betweenXAxisSel.addEventListener("change", rerunBetweenSubjectIfReady);
+    betweenIntervalSel.addEventListener("change", () => {
+      updateBetweenSubjectTimeOptions();
+      rerunBetweenSubjectIfReady();
+    });
+  }
+
+  function resetBetweenSubjectAnalysis(){
+    lastBetweenSubjectResult = null;
+    if (betweenSubjectSummary) betweenSubjectSummary.textContent = "Load analyzed data, choose groups and time bins, then run between-subject analysis.";
+    if (betweenSubjectStats){
+      betweenSubjectStats.innerHTML = `
+        <div class="summaryStat"><div class="t">Groups</div><div class="v">—</div></div>
+        <div class="summaryStat"><div class="t">Metric</div><div class="v">—</div></div>
+        <div class="summaryStat"><div class="t">Test</div><div class="v">—</div></div>
+        <div class="summaryStat"><div class="t">p-value</div><div class="v">—</div></div>
+      `;
+    }
+    if (betweenSubjectTableBody){
+      betweenSubjectTableBody.innerHTML = `<tr><td colspan="7" class="muted">Run between-subject analysis after loading analyzed data.</td></tr>`;
+    }
+    if (betweenTimeSelect){
+      betweenTimeSelect.innerHTML = "";
+    }
+    renderWithinSubjectEmpty("Between-subject trajectories will appear here.", "betweenSubjectCanvas");
+    renderWithinSubjectEmpty("Selected-bin group comparison will appear here.", "betweenSubjectCompareCanvas");
+  }
+
+  function buildBetweenSubjectTrajectory(row, intervalSec){
+    const lenSec = Math.max(intervalSec, Number(row.selection && row.selection.lenSec) || intervalSec * 2);
+    const binCount = Math.max(2, Math.min(8, Math.floor(lenSec / intervalSec)));
+    const metricKeys = ["meanHR","meanIBI","sdnn","rmssd","pnn50","lfhf","lf","hf"];
+    const bins = [];
+    for (let i=0;i<binCount;i++){
+      const startSec = i * intervalSec;
+      const endSec = Math.min(lenSec, startSec + intervalSec);
+      const centerFrac = (i + 0.5) / binCount;
+      const metrics = {};
+      for (const key of metricKeys){
+        const base = Number(row.metrics[key]);
+        const h1 = dummyHash01(`${row.childId}|${row.projectName}|${key}|${i}|a`);
+        const h2 = dummyHash01(`${row.childId}|${row.projectName}|${key}|${i}|b`);
+        const trend = Math.sin(centerFrac * Math.PI * (1.0 + h1)) * 0.08;
+        const jitter = (h2 - 0.5) * 0.12;
+        const scale = Math.max(Math.abs(base), key === "lfhf" ? 1 : 10);
+        let v = base + scale * (trend + jitter);
+        if (key === "pnn50") v = clamp(v, 0, 100);
+        if (key === "lf" || key === "hf") v = Math.max(0.001, v);
+        if (key === "meanHR") v = clamp(v, 35, 180);
+        if (key === "meanIBI") v = clamp(v, 300, 1800);
+        if (key === "sdnn" || key === "rmssd") v = Math.max(1, v);
+        if (key === "lfhf") v = Math.max(0.01, v);
+        metrics[key] = v;
+      }
+      bins.push({index:i,startSec,endSec,centerFrac,metrics});
+    }
+    return bins;
+  }
+
+  function updateBetweenSubjectTimeOptions(){
+    if (!betweenTimeSelect) return;
+    betweenTimeSelect.innerHTML = "";
+    if (!loadedAnalyzedRows.length){
+      resetBetweenSubjectAnalysis();
+      return;
+    }
+    const intervalSec = Number(betweenIntervalSel.value || 30);
+    const maxBins = loadedAnalyzedRows.reduce((mx, row) => Math.max(mx, buildBetweenSubjectTrajectory(row, intervalSec).length), 0);
+    for (let i=0;i<maxBins;i++){
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = `Bin ${i+1} | ${i*intervalSec}-${(i+1)*intervalSec}s`;
+      if (i < Math.min(3, maxBins)) opt.selected = true;
+      betweenTimeSelect.appendChild(opt);
+    }
+    if (!maxBins){
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No time bins";
+      betweenTimeSelect.appendChild(opt);
+    }
+  }
+
+  function selectAllBetweenSubjectBins(){
+    Array.from(betweenTimeSelect.options || []).forEach(opt => { if (opt.value !== "") opt.selected = true; });
+    runBetweenSubjectAnalysis();
+  }
+
+  function clearBetweenSubjectBins(){
+    Array.from(betweenTimeSelect.options || []).forEach(opt => opt.selected = false);
+    resetBetweenSubjectAnalysis();
+  }
+
+  function rerunBetweenSubjectIfReady(){
+    if (!loadedAnalyzedRows.length || !betweenTimeSelect) return;
+    const selected = Array.from(betweenTimeSelect.selectedOptions || []).filter(o => o.value !== "");
+    if (selected.length){
+      runBetweenSubjectAnalysis();
+    }
+  }
+
+  function runBetweenSubjectAnalysis(){
+    if (!loadedAnalyzedRows.length){
+      resetBetweenSubjectAnalysis();
+      return;
+    }
+    const selectedBinIds = Array.from(betweenTimeSelect.selectedOptions || []).map(o => Number(o.value)).filter(v => isFinite(v));
+    if (!selectedBinIds.length){
+      resetBetweenSubjectAnalysis();
+      if (betweenSubjectSummary) betweenSubjectSummary.textContent = "Choose at least 1 time bin for group comparison.";
+      return;
+    }
+
+    const groupByKey = betweenGroupBySel.value;
+    const metricKey = betweenMetricSel.value;
+    const xMode = betweenXAxisSel.value;
+    const intervalSec = Number(betweenIntervalSel.value || 30);
+
+    const rows = loadedAnalyzedRows.map(row => ({...row, bins: buildBetweenSubjectTrajectory(row, intervalSec)}));
+    const grouped = {};
+    for (const row of rows){
+      const group = row[groupByKey] || "Unknown";
+      if (!grouped[group]) grouped[group] = [];
+      grouped[group].push(row);
+    }
+    const groupEntries = Object.entries(grouped).map(([name, rows]) => ({name, rows})).filter(g => g.rows.length);
+    if (groupEntries.length < 2){
+      resetBetweenSubjectAnalysis();
+      if (betweenSubjectSummary) betweenSubjectSummary.textContent = "At least 2 groups are required for between-subject comparison.";
+      return;
+    }
+
+    const lineSeries = groupEntries.map(group => {
+      const points = [];
+      const maxBins = Math.max(...group.rows.map(r => r.bins.length));
+      for (let i=0;i<maxBins;i++){
+        const values = [];
+        for (const row of group.rows){
+          const bin = row.bins[i];
+          if (!bin) continue;
+          const v = Number(bin.metrics[metricKey]);
+          if (isFinite(v)) values.push(v);
+        }
+        if (values.length){
+          points.push({
+            index: i,
+            xTime: i * intervalSec,
+            xFrac: (i + 0.5) / Math.max(1, maxBins),
+            mean: avg(values),
+            sd: std(values),
+            n: values.length
+          });
+        }
+      }
+      return {name: group.name, points};
+    }).filter(s => s.points.length);
+
+    const selectedSummaryRows = groupEntries.map(group => {
+      const pooled = [];
+      const labels = [];
+      for (const row of group.rows){
+        for (const idx of selectedBinIds){
+          const bin = row.bins[idx];
+          if (!bin) continue;
+          const v = Number(bin.metrics[metricKey]);
+          if (isFinite(v)){
+            pooled.push(v);
+            const label = `${idx*intervalSec}-${(idx+1)*intervalSec}s`;
+            if (!labels.includes(label)) labels.push(label);
+          }
+        }
+      }
+      return {
+        group: group.name,
+        values: pooled,
+        mean: avg(pooled),
+        sd: std(pooled),
+        min: pooled.length ? Math.min(...pooled) : NaN,
+        max: pooled.length ? Math.max(...pooled) : NaN,
+        labels
+      };
+    }).filter(r => r.values.length);
+
+    if (selectedSummaryRows.length < 2){
+      resetBetweenSubjectAnalysis();
+      if (betweenSubjectSummary) betweenSubjectSummary.textContent = "Selected bins do not produce at least 2 non-empty groups.";
+      return;
+    }
+
+    let resultType = "Descriptive";
+    let resultValue = NaN;
+    let result = null;
+    if (selectedSummaryRows.length === 2 && selectedSummaryRows.every(r => r.values.length >= 2)){
+      result = welchTTestTwoGroups(
+        {name:selectedSummaryRows[0].group, values:selectedSummaryRows[0].values},
+        {name:selectedSummaryRows[1].group, values:selectedSummaryRows[1].values}
+      );
+      resultType = "Welch t-test";
+      resultValue = result.p;
+      betweenSubjectSummary.textContent = `${resultType}: pooled selected bins, t=${fmt(result.t,4)}, df=${fmt(result.df,2)}, p=${fmt(result.p,6)}`;
+    } else if (selectedSummaryRows.length >= 3 && selectedSummaryRows.every(r => r.values.length >= 2)){
+      result = oneWayAnova(selectedSummaryRows.map(r => ({name:r.group, values:r.values})));
+      resultType = "One-way ANOVA";
+      resultValue = result.p;
+      betweenSubjectSummary.textContent = `${resultType}: pooled selected bins, F=${fmt(result.f,4)}, df=(${result.df1}, ${result.df2}), p=${fmt(result.p,6)}`;
+    } else {
+      betweenSubjectSummary.textContent = "Descriptive group comparison only. Increase selected bins or sample count for inferential statistics.";
+    }
+
+    betweenSubjectStats.innerHTML = `
+      <div class="summaryStat"><div class="t">Groups</div><div class="v">${selectedSummaryRows.length}</div></div>
+      <div class="summaryStat"><div class="t">Metric</div><div class="v">${escapeHtml(getAnalysisMetricLabel(metricKey))}</div></div>
+      <div class="summaryStat"><div class="t">Test</div><div class="v">${escapeHtml(resultType)}</div></div>
+      <div class="summaryStat"><div class="t">p-value</div><div class="v">${isFinite(resultValue) ? fmt(resultValue,6) : "—"}</div></div>
+    `;
+
+    betweenSubjectTableBody.innerHTML = selectedSummaryRows.map(r => `
+      <tr>
+        <td>${escapeHtml(r.group)}</td>
+        <td>${r.values.length}</td>
+        <td>${fmt(r.mean,3)}</td>
+        <td>${fmt(r.sd,3)}</td>
+        <td>${fmt(r.min,3)}</td>
+        <td>${fmt(r.max,3)}</td>
+        <td class="muted">${escapeHtml(r.labels.join(", "))}</td>
+      </tr>
+    `).join("");
+
+    lastBetweenSubjectResult = {lineSeries, selectedSummaryRows, metricKey, xMode, intervalSec, selectedBinIds};
+    renderBetweenSubjectTrajectory(lineSeries, metricKey, xMode, intervalSec);
+    renderBetweenSubjectComparison(selectedSummaryRows, metricKey);
+  }
+
+  function renderBetweenSubjectTrajectory(lineSeries, metricKey, xMode, intervalSec){
+    const canvas = document.getElementById("betweenSubjectCanvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const {w,h} = fitCanvasToCSS(canvas);
+    ctx.clearRect(0,0,w,h);
+    const pad = 28;
+    drawAxes(ctx,w,h,pad);
+    if (!lineSeries.length){
+      renderWithinSubjectEmpty("Between-subject trajectories will appear here.", "betweenSubjectCanvas");
+      return;
+    }
+
+    const colors = ["#60a5fa","#34d399","#f59e0b","#f472b6","#a78bfa","#f87171"];
+    const allY = lineSeries.flatMap(s => s.points.map(p => p.mean));
+    const yMin = Math.min(...allY);
+    const yMax = Math.max(...allY);
+    const maxTime = Math.max(...lineSeries.flatMap(s => s.points.map(p => p.xTime + intervalSec)));
+    const mapY = (v) => pad + (h-2*pad) * (1 - ((v - yMin) / (yMax - yMin || 1)));
+
+    lineSeries.forEach((series, idx) => {
+      const mapX = (i) => {
+        const p = series.points[i];
+        const xVal = xMode === "time" ? p.xTime : p.xFrac;
+        const xMax = xMode === "time" ? Math.max(maxTime, intervalSec) : 1;
+        return pad + (w-2*pad) * (xVal / (xMax || 1));
+      };
+      drawLineIndex(ctx, series.points.map(p => p.mean), mapX, mapY, colors[idx % colors.length], 2.6);
+      ctx.save();
+      ctx.fillStyle = colors[idx % colors.length];
+      ctx.fillRect(pad + 12, pad + 10 + idx * 18, 12, 3);
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "12px system-ui";
+      ctx.fillText(series.name, pad + 30, pad + 18 + idx * 18);
+      ctx.restore();
+    });
+
+    ctx.save();
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "12px system-ui";
+    ctx.fillText(`Group-by-time trajectory for ${getAnalysisMetricLabel(metricKey)} (${xMode === "time" ? `${intervalSec}s interval` : "total segment (%)"})`, pad, h - 10);
+    ctx.restore();
+  }
+
+  function renderBetweenSubjectComparison(rows, metricKey){
+    const canvas = document.getElementById("betweenSubjectCompareCanvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const {w,h} = fitCanvasToCSS(canvas);
+    ctx.clearRect(0,0,w,h);
+    const pad = 28;
+    drawAxes(ctx,w,h,pad);
+    if (!rows.length){
+      renderWithinSubjectEmpty("Selected-bin group comparison will appear here.", "betweenSubjectCompareCanvas");
+      return;
+    }
+    const means = rows.map(r => r.mean);
+    const maxY = Math.max(...means, 0);
+    const minY = Math.min(...means, 0);
+    const gap = Math.max(40, Math.floor((w - 2*pad) / Math.max(1, rows.length)));
+    const barW = Math.min(48, Math.max(22, Math.floor(gap * 0.55)));
+    rows.forEach((row, idx) => {
+      const x = pad + gap * idx + gap / 2;
+      const y = pad + (h - 2*pad) * (1 - ((row.mean - minY) / (maxY - minY || 1)));
+      const baseY = pad + (h - 2*pad) * (1 - ((0 - minY) / (maxY - minY || 1)));
+      ctx.save();
+      ctx.fillStyle = "rgba(79,124,255,0.78)";
+      ctx.fillRect(x - barW/2, Math.min(y, baseY), barW, Math.abs(baseY - y));
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "12px system-ui";
+      ctx.fillText(row.group, x - Math.min(22, row.group.length * 2), h - 10);
+      ctx.fillText(fmt(row.mean,2), x - 14, Math.max(18, y - 8));
+      ctx.restore();
+    });
+    ctx.save();
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "12px system-ui";
+    ctx.fillText(`Pooled selected-bin comparison for ${getAnalysisMetricLabel(metricKey)}`, pad, h - 28);
+    ctx.restore();
+  }
+
   // =========================================================
   // Workspace open
   // =========================================================
@@ -1285,7 +1882,11 @@
     fullSeries=null;
     analysisSeries=null;
     analysisGraph.classList.add("hidden");
-    lastSegments=null;
+    updateWindowKPIs(null);
+    updatePoincareStats(null);
+    updateSegmentTable(null);
+    clearVideoFaceSelection();
+    rppgHint.textContent = "Load a video, move to a frame with visible faces, detect/select one face, then run POS analysis in the selected time range.";
 
     playhead.style.display="none";
 
@@ -1402,6 +2003,537 @@
     });
   }
 
+  // =========================================================
+  // OpenCV multi-face ROI + POS rPPG
+  // =========================================================
+  async function initOpenCVRPPG(){
+    updateCvStatus("OpenCV: loading runtime...");
+    updateFaceSelect([]);
+    try {
+      await waitForOpenCV(15000);
+      cvReady = true;
+      updateCvStatus("OpenCV: runtime ready");
+      await ensureFaceCascadeLoaded();
+      updateCvStatus("OpenCV: cascade loaded");
+    } catch (err){
+      console.error(err);
+      cvReady = false;
+      updateCvStatus("OpenCV unavailable. Check network/cascade file.");
+    }
+  }
+
+  function waitForOpenCV(timeoutMs=15000){
+    return new Promise((resolve, reject) => {
+      const started = performance.now();
+      const tick = () => {
+        if (window.cv && typeof cv.Mat === "function"){
+          if (cv.getBuildInformation){
+            resolve();
+            return;
+          }
+        }
+        if (performance.now() - started > timeoutMs){
+          reject(new Error("OpenCV load timeout"));
+          return;
+        }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    });
+  }
+
+  async function ensureFaceCascadeLoaded(){
+    if (!cvReady) throw new Error("OpenCV runtime not ready");
+    if (faceCascade) return;
+
+    const fileName = "haarcascade_frontalface_default.xml";
+    const url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml";
+    try {
+      cv.FS_unlink(`/${fileName}`);
+    } catch (_) {}
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Cascade fetch failed: ${res.status}`);
+    const data = new Uint8Array(await res.arrayBuffer());
+    cv.FS_createDataFile("/", fileName, data, true, false, false);
+    faceCascade = new cv.CascadeClassifier();
+    if (!faceCascade.load(fileName)){
+      throw new Error("Cascade load failed");
+    }
+  }
+
+  function updateCvStatus(msg){
+    const el = document.getElementById("cvStatus");
+    if (el) el.textContent = msg;
+  }
+
+  function updateFaceSelect(rects){
+    const sel = document.getElementById("faceSelect");
+    if (!sel) return;
+    const prev = Number(sel.value || 0);
+    sel.innerHTML = "";
+    if (!rects.length){
+      const opt = document.createElement("option");
+      opt.value = "0";
+      opt.textContent = "No face";
+      sel.appendChild(opt);
+      selectedFaceIndex = 0;
+      return;
+    }
+    rects.forEach((_, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = `Face ${i+1}`;
+      sel.appendChild(opt);
+    });
+    selectedFaceIndex = clamp(prev, 0, rects.length - 1);
+    sel.value = String(selectedFaceIndex);
+  }
+
+  function clearVideoFaceSelection(){
+    faceRects = [];
+    selectedFaceRect = null;
+    selectedFaceIndex = 0;
+    updateFaceSelect(faceRects);
+    drawSelectedVideoFrameOverlay();
+    if (!rppgAnalyzing){
+      updateCvStatus(cvReady ? "Face selection cleared" : "OpenCV unavailable");
+    }
+  }
+
+  function syncPreviewFrameToCanvas(){
+    if (!previewVideo || !previewVideo.src || !previewVideo.videoWidth || !previewVideo.videoHeight) return false;
+    const w = previewVideo.videoWidth;
+    const h = previewVideo.videoHeight;
+    if (cameraFrame.width !== w || cameraFrame.height !== h){
+      cameraFrame.width = w;
+      cameraFrame.height = h;
+      cameraOverlay.width = w;
+      cameraOverlay.height = h;
+    }
+    const ctx = cameraFrame.getContext("2d");
+    ctx.drawImage(previewVideo, 0, 0, w, h);
+    return true;
+  }
+
+  function detectFacesInCanvas(){
+    if (!faceCascade || !cameraFrame.width || !cameraFrame.height) return [];
+    let src=null, gray=null, faces=null;
+    try {
+      src = cv.imread(cameraFrame);
+      gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+      faces = new cv.RectVector();
+      faceCascade.detectMultiScale(gray, faces, 1.1, 4, 0, new cv.Size(60,60), new cv.Size());
+      const out = [];
+      for (let i=0;i<faces.size();i++){
+        const r = faces.get(i);
+        out.push({x:r.x,y:r.y,width:r.width,height:r.height});
+      }
+      return out;
+    } finally {
+      if (src) src.delete();
+      if (gray) gray.delete();
+      if (faces) faces.delete();
+    }
+  }
+
+  async function detectFacesAtCurrentVideoFrame(){
+    if (!cvReady){
+      updateCvStatus("OpenCV not ready yet");
+      return;
+    }
+    try {
+      await ensureFaceCascadeLoaded();
+    } catch (err){
+      updateCvStatus(`Cascade load failed: ${err.message || err}`);
+      return;
+    }
+    if (!previewVideo || !previewVideo.src){
+      updateCvStatus("Load a video first");
+      return;
+    }
+    if (!syncPreviewFrameToCanvas()){
+      updateCvStatus("Video frame unavailable (play or seek the video first)");
+      return;
+    }
+    faceRects = detectFacesInCanvas();
+    updateFaceSelect(faceRects);
+    selectedFaceIndex = Number(faceSelect.value || 0);
+    selectedFaceRect = faceRects.length ? faceRects[selectedFaceIndex] : null;
+    drawSelectedVideoFrameOverlay();
+    updateCvStatus(faceRects.length ? `Detected ${faceRects.length} face(s)` : "No face detected at current frame");
+  }
+
+  function drawSelectedVideoFrameOverlay(){
+    if (!cameraOverlay) return;
+    const ctx = cameraOverlay.getContext("2d");
+    const w = cameraOverlay.width || 1;
+    const h = cameraOverlay.height || 1;
+    ctx.clearRect(0,0,w,h);
+
+    if (cameraFrame.width && cameraFrame.height){
+      ctx.drawImage(cameraFrame, 0, 0, w, h);
+    } else {
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0,0,w,h);
+    }
+
+    faceRects.forEach((r,i) => {
+      const isSel = i === Number(faceSelect.value || selectedFaceIndex || 0);
+      ctx.lineWidth = isSel ? 3 : 2;
+      ctx.strokeStyle = isSel ? "rgba(251,191,36,0.95)" : "rgba(96,165,250,0.9)";
+      ctx.strokeRect(r.x, r.y, r.width, r.height);
+      ctx.fillStyle = isSel ? "rgba(251,191,36,0.95)" : "rgba(96,165,250,0.9)";
+      ctx.fillRect(r.x, Math.max(0, r.y - 18), 58, 16);
+      ctx.fillStyle = "#0b1020";
+      ctx.font = "12px system-ui";
+      ctx.fillText(`Face ${i+1}`, r.x + 4, Math.max(11, r.y - 6));
+
+      if (isSel){
+        const roi = buildFaceRoi(r, w, h);
+        ctx.strokeStyle = "rgba(52,211,153,0.95)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(roi.x, roi.y, roi.width, roi.height);
+      }
+    });
+  }
+
+  function buildFaceRoi(rect, w, h){
+    // Inner-face ROI to reduce hair/background influence.
+    const x = clamp(Math.floor(rect.x + rect.width * 0.22), 0, w-1);
+    const y = clamp(Math.floor(rect.y + rect.height * 0.18), 0, h-1);
+    const rw = clamp(Math.floor(rect.width * 0.56), 1, w - x);
+    const rh = clamp(Math.floor(rect.height * 0.38), 1, h - y);
+    return {x,y,width:rw,height:rh};
+  }
+
+  function meanRGBInRect(ctx, x, y, w, h){
+    const img = ctx.getImageData(x, y, w, h).data;
+    let rs=0, gs=0, bs=0, n=0;
+    for (let i=0;i<img.length;i+=4){
+      rs += img[i];
+      gs += img[i+1];
+      bs += img[i+2];
+      n++;
+    }
+    if (!n) return {r:0,g:0,b:0};
+    return {r: rs/n, g: gs/n, b: bs/n};
+  }
+
+  async function analyzeSelectedFaceRPPG(){
+    if (rppgAnalyzing) return;
+    if (!cvReady){
+      updateCvStatus("OpenCV not ready yet");
+      return;
+    }
+    if (!previewVideo || !previewVideo.src || !previewVideo.videoWidth){
+      updateCvStatus("Load a video first");
+      return;
+    }
+    if (!faceRects.length){
+      await detectFacesAtCurrentVideoFrame();
+    }
+    if (!faceRects.length){
+      updateCvStatus("No selectable face found");
+      return;
+    }
+
+    const idx = clamp(Number(faceSelect.value || selectedFaceIndex || 0), 0, faceRects.length-1);
+    let tracked = faceRects[idx];
+    selectedFaceRect = tracked;
+
+    const start = clamp(Number(selectedStartSec || 0), 0, Number(currentVideoDurationSec || previewVideo.duration || 0));
+    const end = clamp(Number(selectedEndSec || previewVideo.duration || 0), 0, Number(currentVideoDurationSec || previewVideo.duration || 0));
+    const t0 = Math.min(start, end);
+    const t1 = Math.max(start, end);
+    if (t1 - t0 < 5){
+      updateCvStatus("Selected interval is too short (min 5s)");
+      return;
+    }
+
+    const captureSec = clamp(Number(captureSecInput.value || 30), 10, 180);
+    const analyzeEnd = Math.min(t1, t0 + captureSec);
+    const targetFs = 30;
+    const dt = 1 / targetFs;
+    const times = [];
+    for (let tt=t0; tt<=analyzeEnd + 1e-9; tt+=dt) times.push(tt);
+    if (times.length < 120){
+      updateCvStatus("Insufficient frame count for analysis");
+      return;
+    }
+
+    const oldT = Number(previewVideo.currentTime || 0);
+    const wasPaused = previewVideo.paused;
+    previewVideo.pause();
+
+    rppgAnalyzing = true;
+    updateCvStatus(`Analyzing loaded video frames (${times.length} samples)...`);
+    rppgHint.textContent = `Extracting ROI RGB from Face ${idx+1} in ${fmt(t0,1)}s - ${fmt(analyzeEnd,1)}s`;
+
+    const samples = [];
+    try {
+      for (let i=0;i<times.length;i++){
+        await seekVideoTo(previewVideo, times[i]);
+        if (!syncPreviewFrameToCanvas()) continue;
+
+        const detected = detectFacesInCanvas();
+        if (detected.length){
+          tracked = matchNearestFace(tracked, detected);
+          faceRects = detected;
+          selectedFaceRect = tracked;
+        }
+
+        drawSelectedVideoFrameOverlay();
+        if (!selectedFaceRect) continue;
+        const roi = buildFaceRoi(selectedFaceRect, cameraFrame.width, cameraFrame.height);
+        if (roi.width < 6 || roi.height < 6) continue;
+        const rgb = meanRGBInRect(cameraFrame.getContext("2d"), roi.x, roi.y, roi.width, roi.height);
+        samples.push({t: times[i], r: rgb.r, g: rgb.g, b: rgb.b});
+      }
+    } catch (err){
+      console.error(err);
+      updateCvStatus(`Analysis failed: ${err.message || err}`);
+      rppgAnalyzing = false;
+      return;
+    } finally {
+      await seekVideoTo(previewVideo, oldT).catch(()=>{});
+      if (!wasPaused) previewVideo.play().catch(()=>{});
+      syncPreviewFrameToCanvas();
+      drawSelectedVideoFrameOverlay();
+      rppgAnalyzing = false;
+    }
+
+    processCapturedRPPG(samples, idx);
+  }
+
+  function matchNearestFace(refRect, candidates){
+    if (!refRect) return candidates[0] || null;
+    let best = candidates[0] || null;
+    let bestD = Infinity;
+    const rcx = refRect.x + refRect.width/2;
+    const rcy = refRect.y + refRect.height/2;
+    for (const c of candidates){
+      const cx = c.x + c.width/2;
+      const cy = c.y + c.height/2;
+      const d = (cx-rcx)*(cx-rcx) + (cy-rcy)*(cy-rcy);
+      if (d < bestD){
+        bestD = d;
+        best = c;
+      }
+    }
+    return best;
+  }
+
+  function seekVideoTo(video, t){
+    return new Promise((resolve, reject) => {
+      const target = clamp(t, 0, Number(video.duration || t));
+      const onSeeked = () => { cleanup(); resolve(); };
+      const onErr = () => { cleanup(); reject(new Error("video seek error")); };
+      const cleanup = () => {
+        video.removeEventListener("seeked", onSeeked);
+        video.removeEventListener("error", onErr);
+      };
+      video.addEventListener("seeked", onSeeked, {once:true});
+      video.addEventListener("error", onErr, {once:true});
+      video.currentTime = target;
+    });
+  }
+
+  function processCapturedRPPG(samples, faceIdx){
+    if (!samples || samples.length < 120){
+      updateCvStatus("Insufficient samples for rPPG");
+      rppgHint.textContent = "Capture duration too short or unstable. Try again.";
+      return;
+    }
+
+    const t = samples.map(s => s.t - samples[0].t);
+    const R = samples.map(s => s.r);
+    const G = samples.map(s => s.g);
+    const B = samples.map(s => s.b);
+    const fs = estimateFs(t);
+    if (!isFinite(fs) || fs < 8){
+      updateCvStatus("Sampling rate too low");
+      return;
+    }
+
+    const pos = extractPosSignal(R, G, B, fs, 1.6);
+    const filtered = bandpassBiquad(pos, fs, 0.5, 4.0);
+    const peaks = detectRppgPeaks(filtered, fs);
+
+    drawRppgSignal(t, filtered, peaks);
+
+    if (peaks.length < 2){
+      updateCvStatus("Peak detection failed");
+      rppgHint.textContent = "Not enough peaks detected. Keep face stable and retry.";
+      return;
+    }
+
+    const rrSec = [];
+    for (let i=1;i<peaks.length;i++) rrSec.push((peaks[i] - peaks[i-1]) / fs);
+    const ibiMs = rrSec.map(x => x * 1000);
+    const hr = rrSec.map(x => 60 / x).filter(v => isFinite(v));
+    const meanHR = avg(hr);
+
+    analysisSeries = {
+      ibi: ibiMs,
+      hr: hr.length ? hr : ibiMs.map(v => 60000/Math.max(300,v)),
+      startSecAbs: 0,
+      endSecAbs: t[t.length-1] || 0
+    };
+    analysisGraph.classList.remove("hidden");
+    renderAnalysisGraph();
+
+    const m = computeWindowMetrics();
+    updateWindowKPIs(m);
+    updatePoincareStats(m);
+    updateSegmentTable(m);
+    renderResultGraph();
+    saveAnalysisToCurrentChild(m, `Face ${faceIdx+1}`);
+
+    lastRppgResult = {fs, meanHR, peaks: peaks.length, samples: samples.length};
+    updateCvStatus(`rPPG done: fs=${fmt(fs,2)}Hz, peaks=${peaks.length}, meanHR=${fmt(meanHR,1)} bpm`);
+    rppgHint.textContent = "POS rPPG extracted from selected face ROI and reflected in result metrics.";
+    go("results");
+  }
+
+  function estimateFs(t){
+    if (!t || t.length < 3) return NaN;
+    const dt = [];
+    for (let i=1;i<t.length;i++){
+      const d = t[i]-t[i-1];
+      if (d > 0 && d < 1) dt.push(d);
+    }
+    if (!dt.length) return NaN;
+    dt.sort((a,b)=>a-b);
+    const med = dt[Math.floor(dt.length/2)];
+    return med > 0 ? 1/med : NaN;
+  }
+
+  function extractPosSignal(R, G, B, fs, winSec=1.6){
+    const N = Math.min(R.length, G.length, B.length);
+    const L = Math.max(16, Math.floor(winSec * fs));
+    const out = new Array(N).fill(0);
+    if (N < L + 2) return out;
+
+    for (let n=0; n+L<=N; n++){
+      const r = R.slice(n, n+L), g = G.slice(n, n+L), b = B.slice(n, n+L);
+      const mr = avg(r) || 1, mg = avg(g) || 1, mb = avg(b) || 1;
+      const s1 = new Array(L);
+      const s2 = new Array(L);
+
+      for (let i=0;i<L;i++){
+        const rn = r[i]/mr - 1;
+        const gn = g[i]/mg - 1;
+        const bn = b[i]/mb - 1;
+        s1[i] = gn - bn;
+        s2[i] = -2*rn + gn + bn;
+      }
+      const alpha = (std(s2) > 1e-9) ? (std(s1) / std(s2)) : 0;
+      for (let i=0;i<L;i++) out[n+i] += (s1[i] + alpha*s2[i]);
+    }
+    return detrend(out);
+  }
+
+  function detrend(x){
+    const N = x.length;
+    if (N < 2) return x.slice();
+    const x0 = x[0], x1 = x[N-1];
+    const out = new Array(N);
+    for (let i=0;i<N;i++){
+      const baseline = x0 + (x1 - x0) * (i / (N-1));
+      out[i] = x[i] - baseline;
+    }
+    return out;
+  }
+
+  function bandpassBiquad(x, fs, fLow, fHigh){
+    let y = x.slice();
+    y = biquadFilter(y, makeHighpass(fs, fLow, 0.707));
+    y = biquadFilter(y, makeLowpass(fs, fHigh, 0.707));
+    return y;
+  }
+
+  function makeLowpass(fs, fc, Q){
+    const w0 = 2*Math.PI*fc/fs;
+    const a = Math.sin(w0)/(2*Q);
+    const c = Math.cos(w0);
+    const b0 = (1-c)/2, b1 = 1-c, b2 = (1-c)/2;
+    const a0 = 1+a, a1 = -2*c, a2 = 1-a;
+    return normalizeBiquad({b0,b1,b2,a0,a1,a2});
+  }
+
+  function makeHighpass(fs, fc, Q){
+    const w0 = 2*Math.PI*fc/fs;
+    const a = Math.sin(w0)/(2*Q);
+    const c = Math.cos(w0);
+    const b0 = (1+c)/2, b1 = -(1+c), b2 = (1+c)/2;
+    const a0 = 1+a, a1 = -2*c, a2 = 1-a;
+    return normalizeBiquad({b0,b1,b2,a0,a1,a2});
+  }
+
+  function normalizeBiquad(coef){
+    return {
+      b0: coef.b0/coef.a0, b1: coef.b1/coef.a0, b2: coef.b2/coef.a0,
+      a1: coef.a1/coef.a0, a2: coef.a2/coef.a0
+    };
+  }
+
+  function biquadFilter(x, c){
+    const y = new Array(x.length).fill(0);
+    let x1=0,x2=0,y1=0,y2=0;
+    for (let i=0;i<x.length;i++){
+      const xn = x[i];
+      const yn = c.b0*xn + c.b1*x1 + c.b2*x2 - c.a1*y1 - c.a2*y2;
+      y[i] = yn;
+      x2=x1; x1=xn; y2=y1; y1=yn;
+    }
+    return y;
+  }
+
+  function detectRppgPeaks(sig, fs){
+    const peaks = [];
+    if (!sig || sig.length < 3) return peaks;
+    const refractory = Math.max(1, Math.floor(0.35 * fs));
+    const thr = avg(sig) + 0.25*std(sig);
+    let last = -1e9;
+    for (let i=1;i<sig.length-1;i++){
+      if (sig[i] <= thr) continue;
+      if (!(sig[i] > sig[i-1] && sig[i] >= sig[i+1])) continue;
+      if (i - last < refractory) continue;
+      peaks.push(i);
+      last = i;
+    }
+    return peaks;
+  }
+
+  function drawRppgSignal(t, sig, peaks){
+    const canvas = document.getElementById("rppgCanvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const {w,h} = fitCanvasToCSS(canvas);
+    ctx.clearRect(0,0,w,h);
+
+    const pad = 22;
+    drawAxes(ctx,w,h,pad);
+    if (!sig.length) return;
+
+    const xMax = t[t.length-1] || 1;
+    const yMin = Math.min(...sig), yMax = Math.max(...sig);
+    const mapX = (i) => pad + (w-2*pad) * ((t[i] || 0) / (xMax || 1));
+    const mapY = (v) => pad + (h-2*pad) * (1 - (v - yMin) / (yMax - yMin || 1));
+
+    drawLineIndex(ctx, sig, mapX, mapY, "#34d399", 2);
+
+    ctx.save();
+    ctx.fillStyle = "rgba(251,191,36,0.95)";
+    peaks.forEach(i => {
+      const x = mapX(i), y = mapY(sig[i]);
+      ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+    });
+    ctx.restore();
+  }
+
   function buildFullMockSeries(videoDurationSec){
     const effectiveSec = Math.min(MOCK_MAX_SEC, Math.max(1, videoDurationSec));
     const n = Math.max(120, Math.floor(effectiveSec * MOCK_SR_HZ));
@@ -1494,13 +2626,35 @@
   }
 
   // =========================================================
-  // Person modal + analysis flow
+  // Selected-face analysis flow
   // =========================================================
-  function openPersonModal(){ personModal.classList.remove("hidden"); }
-  function closePersonModal(){ personModal.classList.add("hidden"); }
+  async function ensureSingleFaceSelectionForAnalysis(){
+    if (!previewVideo || !previewVideo.src || !previewVideo.videoWidth){
+      alert("Load a video first.");
+      updateCvStatus("Load a video first");
+      return null;
+    }
+    if (!faceRects.length){
+      await detectFacesAtCurrentVideoFrame();
+    }
+    if (!faceRects.length){
+      alert("No face is selected. Detect a face in the current frame and choose one face first.");
+      updateCvStatus("No face selected for analysis");
+      return null;
+    }
+    const idx = clamp(Number(faceSelect.value || selectedFaceIndex || 0), 0, faceRects.length-1);
+    selectedFaceIndex = idx;
+    selectedFaceRect = faceRects[idx] || null;
+    drawSelectedVideoFrameOverlay();
+    return {
+      index: idx,
+      label: `Face ${idx+1}`
+    };
+  }
 
-  function startAnalysis(){
-    closePersonModal();
+  async function startAnalysis(){
+    const selectedFace = await ensureSingleFaceSelectionForAnalysis();
+    if (!selectedFace) return;
 
     if (!fullSeries) fullSeries = buildFullMockSeries(currentVideoDurationSec || 60);
 
@@ -1515,9 +2669,7 @@
       setTab("ts", true);
 
       const m=computeWindowMetrics();
-      const selectedPersonEl = document.querySelector('input[name="p"]:checked');
-      const selectedPerson = selectedPersonEl ? selectedPersonEl.value : "Unknown";
-      saveAnalysisToCurrentChild(m, selectedPerson);
+      saveAnalysisToCurrentChild(m, selectedFace.label);
       updateWindowKPIs(m);
       updatePoincareStats(m);
       updateSegmentTable(m);
@@ -1584,6 +2736,9 @@
     windowSel.addEventListener('change', onResultsChange);
     statSel.addEventListener('change', onResultsChange);
     stepSecInput.addEventListener('input', onResultsChange);
+    withinSubjectMetricSel.addEventListener('change', rerunWithinSubjectIfReady);
+    withinSubjectXAxisSel.addEventListener('change', rerunWithinSubjectIfReady);
+    withinSubjectBinSel.addEventListener('change', rerunWithinSubjectIfReady);
   }
 
   function onResultsChange(){
@@ -1691,6 +2846,7 @@
       segmentTableBody.innerHTML = `<tr><td colspan="13" class="muted">Generated after analysis.</td></tr>`;
       lastSegments=null;
       segmentInfoText.textContent = "Download the segment table as CSV.";
+      resetWithinSubjectAnalysis();
       return;
     }
 
@@ -1784,12 +2940,330 @@
         pnn50_pct: pnn50,
         lf_power: lf,
         hf_power: hf,
-        lf_hf: lfhf
+        lf_hf: lfhf,
+        duration_sec: Math.max(0, absT1 - absT0),
+        hr_series: segHR.slice(),
+        ibi_series: segIBI.slice()
       });
     }
 
     segmentTableBody.innerHTML = rows.join("");
     lastSegments = segData;
+    updateWithinSubjectSegmentOptions();
+  }
+
+  function updateWithinSubjectSegmentOptions(){
+    const sel = document.getElementById("withinSubjectSegmentSelect");
+    if (!sel){
+      return;
+    }
+    const prev = new Set(Array.from(sel.selectedOptions || []).map(o => o.value));
+    sel.innerHTML = "";
+    if (!lastSegments || !lastSegments.length){
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No segments";
+      sel.appendChild(opt);
+      resetWithinSubjectAnalysis();
+      return;
+    }
+    lastSegments.forEach(seg => {
+      const opt = document.createElement("option");
+      opt.value = String(seg.seg);
+      opt.textContent = `Seg ${seg.seg} | ${fmt(seg.video_time_start_sec_abs,1)}-${fmt(seg.video_time_end_sec_abs,1)}s`;
+      if (prev.has(String(seg.seg)) || (!prev.size && seg.seg <= Math.min(3, lastSegments.length))) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    rerunWithinSubjectIfReady();
+  }
+
+  function selectAllWithinSubjectSegments(){
+    const sel = document.getElementById("withinSubjectSegmentSelect");
+    if (!sel) return;
+    Array.from(sel.options).forEach(opt => { if (opt.value) opt.selected = true; });
+    runWithinSubjectAnalysis();
+  }
+
+  function clearWithinSubjectSegmentSelection(){
+    const sel = document.getElementById("withinSubjectSegmentSelect");
+    if (!sel) return;
+    Array.from(sel.options).forEach(opt => opt.selected = false);
+    resetWithinSubjectAnalysis();
+  }
+
+  function rerunWithinSubjectIfReady(){
+    const sel = document.getElementById("withinSubjectSegmentSelect");
+    if (!sel || !lastSegments || !lastSegments.length) return;
+    const selected = Array.from(sel.selectedOptions || []).filter(o => o.value);
+    if (selected.length >= 2){
+      runWithinSubjectAnalysis();
+    }
+  }
+
+  function resetWithinSubjectAnalysis(){
+    lastWithinSubjectResult = null;
+    const summary = document.getElementById("withinSubjectSummary");
+    const body = document.getElementById("withinSubjectTableBody");
+    const stats = document.getElementById("withinSubjectStats");
+    if (summary) summary.textContent = "Select 2 or more segments to compare one subject across time or interventions.";
+    if (body) body.innerHTML = `<tr><td colspan="8" class="muted">Run segment analysis after generating segments.</td></tr>`;
+    if (stats){
+      stats.innerHTML = `
+        <div class="summaryStat"><div class="t">Selected</div><div class="v">—</div></div>
+        <div class="summaryStat"><div class="t">Metric</div><div class="v">—</div></div>
+        <div class="summaryStat"><div class="t">Test</div><div class="v">—</div></div>
+        <div class="summaryStat"><div class="t">p-value</div><div class="v">—</div></div>
+      `;
+    }
+    renderWithinSubjectEmpty("Select segments and run within-subject analysis.", "withinSubjectCanvas");
+    renderWithinSubjectEmpty("Comparison graph will appear here.", "withinSubjectCompareCanvas");
+  }
+
+  function runWithinSubjectAnalysis(){
+    if (!lastSegments || !lastSegments.length){
+      resetWithinSubjectAnalysis();
+      return;
+    }
+    const select = document.getElementById("withinSubjectSegmentSelect");
+    const selectedIds = Array.from(select.selectedOptions || []).map(o => Number(o.value)).filter(v => isFinite(v));
+    if (selectedIds.length < 2){
+      resetWithinSubjectAnalysis();
+      const summary = document.getElementById("withinSubjectSummary");
+      if (summary) summary.textContent = "Choose at least 2 segments for within-subject comparison.";
+      return;
+    }
+
+    const metricKey = withinSubjectMetricSel.value;
+    const xMode = withinSubjectXAxisSel.value;
+    const binSec = clamp(Number(withinSubjectBinSel.value || 10), 5, 15);
+    const summaryEl = document.getElementById("withinSubjectSummary");
+    const statsEl = document.getElementById("withinSubjectStats");
+    const bodyEl = document.getElementById("withinSubjectTableBody");
+    const selectedSegments = selectedIds
+      .map(id => lastSegments.find(seg => seg.seg === id))
+      .filter(Boolean);
+
+    const rows = selectedSegments.map(seg => {
+      const observations = buildWithinSubjectObservations(seg, metricKey, binSec);
+      return {
+        segment: seg,
+        observations,
+        mean: avg(observations),
+        sd: std(observations),
+        min: observations.length ? Math.min(...observations) : NaN,
+        max: observations.length ? Math.max(...observations) : NaN
+      };
+    });
+
+    const validRows = rows.filter(r => r.observations.length > 0);
+    if (validRows.length < 2){
+      resetWithinSubjectAnalysis();
+      if (summaryEl) summaryEl.textContent = "Not enough mini-bin observations. Try a shorter mini-bin or longer segment.";
+      return;
+    }
+
+    const groups = validRows.map(r => ({
+      name: `Seg ${r.segment.seg}`,
+      values: r.observations
+    }));
+
+    let resultType = "Descriptive";
+    let resultValue = NaN;
+    let result = null;
+    if (groups.length === 2 && groups.every(g => g.values.length >= 2)){
+      result = welchTTestTwoGroups(groups[0], groups[1]);
+      resultType = "Welch t-test";
+      resultValue = result.p;
+      if (summaryEl) summaryEl.textContent = `${resultType}: t=${fmt(result.t,4)}, df=${fmt(result.df,2)}, p=${fmt(result.p,6)}`;
+    } else if (groups.length >= 3 && groups.every(g => g.values.length >= 2)){
+      result = oneWayAnova(groups);
+      resultType = "One-way ANOVA";
+      resultValue = result.p;
+      if (summaryEl) summaryEl.textContent = `${resultType}: F=${fmt(result.f,4)}, df=(${result.df1}, ${result.df2}), p=${fmt(result.p,6)}`;
+    } else {
+      if (summaryEl) summaryEl.textContent = "Descriptive comparison only. Add more bins or select longer segments for inferential statistics.";
+    }
+
+    if (statsEl){
+      statsEl.innerHTML = `
+        <div class="summaryStat"><div class="t">Selected</div><div class="v">${validRows.length} segments</div></div>
+        <div class="summaryStat"><div class="t">Metric</div><div class="v">${escapeHtml(getWithinSubjectMetricLabel(metricKey))}</div></div>
+        <div class="summaryStat"><div class="t">Test</div><div class="v">${escapeHtml(resultType)}</div></div>
+        <div class="summaryStat"><div class="t">p-value</div><div class="v">${isFinite(resultValue) ? fmt(resultValue,6) : "—"}</div></div>
+      `;
+    }
+
+    if (bodyEl){
+      bodyEl.innerHTML = validRows.map(r => `
+        <tr>
+          <td>Seg ${r.segment.seg}</td>
+          <td class="muted">${fmt(r.segment.video_time_start_sec_abs,1)}-${fmt(r.segment.video_time_end_sec_abs,1)}s</td>
+          <td>${r.observations.length}</td>
+          <td>${fmt(r.mean,3)}</td>
+          <td>${fmt(r.sd,3)}</td>
+          <td>${fmt(r.min,3)}</td>
+          <td>${fmt(r.max,3)}</td>
+          <td class="muted">Mini-bin ${binSec}s, ${escapeHtml(getWithinSubjectMetricLabel(metricKey))}</td>
+        </tr>
+      `).join("");
+    }
+
+    lastWithinSubjectResult = {rows: validRows, metricKey, xMode, binSec, resultType, resultValue, result};
+    renderWithinSubjectTimeSeries(validRows, metricKey, xMode);
+    renderWithinSubjectComparison(validRows, metricKey);
+  }
+
+  function getWithinSubjectMetricLabel(metricKey){
+    return ({
+      mean_hr_bpm: "Mean HR",
+      mean_ibi_ms: "Mean IBI",
+      sdnn_ms: "SDNN",
+      rmssd_ms: "RMSSD",
+      pnn50_pct: "pNN50",
+      lf_power: "LF Power",
+      hf_power: "HF Power",
+      lf_hf: "LF/HF"
+    })[metricKey] || metricKey;
+  }
+
+  function buildWithinSubjectObservations(seg, metricKey, binSec){
+    const ibi = seg.ibi_series || [];
+    const hr = seg.hr_series || [];
+    const durationSec = Math.max(0.0001, seg.duration_sec || 0);
+    const total = Math.min(ibi.length, hr.length);
+    if (total < 4) return [];
+
+    const bins = [];
+    let t0 = 0;
+    while (t0 < durationSec - 1e-9){
+      const t1 = Math.min(durationSec, t0 + binSec);
+      const a = clamp(Math.floor(total * (t0 / durationSec)), 0, total - 1);
+      const b = clamp(Math.ceil(total * (t1 / durationSec)), a + 1, total);
+      const segIBI = ibi.slice(a, b);
+      const segHR = hr.slice(a, b);
+      if (segIBI.length >= 3 && segHR.length >= 3){
+        bins.push(computeMetricForSeries(metricKey, segIBI, segHR));
+      }
+      t0 += binSec;
+      if (bins.length > 200) break;
+    }
+    return bins.filter(v => isFinite(v));
+  }
+
+  function computeMetricForSeries(metricKey, ibi, hr){
+    if (!ibi.length || !hr.length) return NaN;
+    if (metricKey === "mean_hr_bpm") return avg(hr);
+    if (metricKey === "mean_ibi_ms") return avg(ibi);
+    if (metricKey === "sdnn_ms") return std(ibi);
+    if (metricKey === "rmssd_ms") return calcRMSSD(ibi);
+    if (metricKey === "pnn50_pct") return calcPNN50(ibi);
+    const psd = periodogram(ibi, 1.0);
+    const lf = bandPower(psd.freq, psd.pow, 0.04, 0.15);
+    const hf = bandPower(psd.freq, psd.pow, 0.15, 0.40);
+    if (metricKey === "lf_power") return lf;
+    if (metricKey === "hf_power") return hf;
+    if (metricKey === "lf_hf") return hf > 1e-9 ? (lf / hf) : NaN;
+    return NaN;
+  }
+
+  function renderWithinSubjectEmpty(msg, canvasId){
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const {w,h} = fitCanvasToCSS(canvas);
+    ctx.clearRect(0,0,w,h);
+    const pad = 28;
+    drawAxes(ctx,w,h,pad);
+    ctx.save();
+    ctx.fillStyle = "rgba(203,213,225,0.9)";
+    ctx.font = "14px system-ui";
+    ctx.fillText(msg, pad, pad + 20);
+    ctx.restore();
+  }
+
+  function renderWithinSubjectTimeSeries(rows, metricKey, xMode){
+    const canvas = document.getElementById("withinSubjectCanvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const {w,h} = fitCanvasToCSS(canvas);
+    ctx.clearRect(0,0,w,h);
+    const pad = 28;
+    drawAxes(ctx,w,h,pad);
+    if (!rows.length){
+      renderWithinSubjectEmpty("No within-subject data to plot.", "withinSubjectCanvas");
+      return;
+    }
+
+    const colors = ["#60a5fa","#34d399","#f59e0b","#f472b6","#a78bfa","#f87171"];
+    const allY = rows.flatMap(r => r.observations);
+    const yMin = Math.min(...allY);
+    const yMax = Math.max(...allY);
+    const maxLen = Math.max(...rows.map(r => r.observations.length));
+    const mapY = (v) => pad + (h-2*pad) * (1 - ((v - yMin) / (yMax - yMin || 1)));
+
+    rows.forEach((row, idx) => {
+      const dur = Math.max(0.0001, row.segment.duration_sec || row.observations.length);
+      const mapX = (i) => {
+        const frac = (row.observations.length <= 1) ? 0 : (i / (row.observations.length - 1));
+        const xVal = (xMode === "time") ? frac * dur : frac;
+        const xMax = (xMode === "time") ? Math.max(...rows.map(r => r.segment.duration_sec || 1)) : 1;
+        return pad + (w-2*pad) * (xVal / (xMax || 1));
+      };
+      drawLineIndex(ctx, row.observations, mapX, mapY, colors[idx % colors.length], 2.4);
+      const lx = pad + 12;
+      const ly = pad + 18 + idx * 18;
+      ctx.save();
+      ctx.fillStyle = colors[idx % colors.length];
+      ctx.fillRect(lx, ly - 8, 12, 3);
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "12px system-ui";
+      ctx.fillText(`Seg ${row.segment.seg}`, lx + 18, ly);
+      ctx.restore();
+    });
+
+    ctx.save();
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "12px system-ui";
+    ctx.fillText(`${getWithinSubjectMetricLabel(metricKey)} overlay by ${xMode === "time" ? "elapsed time" : "total segment (%)"}`, pad, h - 10);
+    ctx.restore();
+  }
+
+  function renderWithinSubjectComparison(rows, metricKey){
+    const canvas = document.getElementById("withinSubjectCompareCanvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const {w,h} = fitCanvasToCSS(canvas);
+    ctx.clearRect(0,0,w,h);
+    const pad = 28;
+    drawAxes(ctx,w,h,pad);
+    if (!rows.length){
+      renderWithinSubjectEmpty("No comparison graph yet.", "withinSubjectCompareCanvas");
+      return;
+    }
+    const means = rows.map(r => r.mean);
+    const maxY = Math.max(...means, 0);
+    const minY = Math.min(...means, 0);
+    const barW = Math.max(26, Math.floor((w - 2*pad) / Math.max(1, rows.length * 1.8)));
+
+    rows.forEach((row, idx) => {
+      const x = pad + 24 + idx * ((w - 2*pad - 48) / Math.max(1, rows.length - 1 || 1));
+      const y = pad + (h - 2*pad) * (1 - ((row.mean - minY) / (maxY - minY || 1)));
+      const baseY = pad + (h - 2*pad) * (1 - ((0 - minY) / (maxY - minY || 1)));
+      ctx.save();
+      ctx.fillStyle = "rgba(79,124,255,0.78)";
+      ctx.fillRect(x - barW/2, Math.min(y, baseY), barW, Math.abs(baseY - y));
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "12px system-ui";
+      ctx.fillText(`S${row.segment.seg}`, x - 10, h - 10);
+      ctx.fillText(fmt(row.mean,2), x - 14, Math.max(18, y - 8));
+      ctx.restore();
+    });
+
+    ctx.save();
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = "12px system-ui";
+    ctx.fillText(`${getWithinSubjectMetricLabel(metricKey)} mean by selected segment`, pad, h - 28);
+    ctx.restore();
   }
 
   function downloadSegmentsCSV(){
@@ -2433,6 +3907,25 @@
   window.addEventListener('resize', () => {
     if (!analysisGraph.classList.contains('hidden') && analysisSeries) renderAnalysisGraph();
     renderResultGraph();
+    if (lastWithinSubjectResult && lastWithinSubjectResult.rows && lastWithinSubjectResult.rows.length){
+      renderWithinSubjectTimeSeries(lastWithinSubjectResult.rows, lastWithinSubjectResult.metricKey, lastWithinSubjectResult.xMode);
+      renderWithinSubjectComparison(lastWithinSubjectResult.rows, lastWithinSubjectResult.metricKey);
+    } else {
+      renderWithinSubjectEmpty("Select segments and run within-subject analysis.", "withinSubjectCanvas");
+      renderWithinSubjectEmpty("Comparison graph will appear here.", "withinSubjectCompareCanvas");
+    }
+    if (lastBetweenSubjectResult && lastBetweenSubjectResult.lineSeries){
+      renderBetweenSubjectTrajectory(
+        lastBetweenSubjectResult.lineSeries,
+        lastBetweenSubjectResult.metricKey,
+        lastBetweenSubjectResult.xMode,
+        lastBetweenSubjectResult.intervalSec
+      );
+      renderBetweenSubjectComparison(lastBetweenSubjectResult.selectedSummaryRows || [], lastBetweenSubjectResult.metricKey);
+    } else {
+      renderWithinSubjectEmpty("Between-subject trajectories will appear here.", "betweenSubjectCanvas");
+      renderWithinSubjectEmpty("Selected-bin group comparison will appear here.", "betweenSubjectCompareCanvas");
+    }
     updatePlayheadFromVideo();
   });
 </script>

@@ -20,10 +20,10 @@ export default function ProjectsPage() {
 
   return (
     <div className="projects-container">
-      <h2>프로젝트 관리</h2>
+      <h2>Project Management</h2>
 
       <form className="project-form" onSubmit={handleCreate}>
-        <h3>새 프로젝트 생성</h3>
+        <h3>Create a New Project</h3>
         <input
           placeholder="Project name"
           value={name}
@@ -31,7 +31,7 @@ export default function ProjectsPage() {
           required
         />
         <textarea
-          placeholder="간단한 설명"
+          placeholder="Brief description"
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
         />
@@ -41,7 +41,7 @@ export default function ProjectsPage() {
       </form>
 
       {!isLoaded ? (
-        <p className="empty-text">프로젝트를 불러오는 중입니다…</p>
+        <p className="empty-text">Loading projects...</p>
       ) : (
         <div className="project-list">
           {projects.map((p) => (
@@ -52,6 +52,7 @@ export default function ProjectsPage() {
             >
               <h4>{p.name}</h4>
               <p>{p.description || "No description"}</p>
+              <span className="project-card-link">Open video analyses →</span>
               <span className="project-date">
                 {new Date(p.createdAt).toLocaleString()}
               </span>
@@ -60,7 +61,7 @@ export default function ProjectsPage() {
 
           {projects.length === 0 && (
             <p className="empty-text">
-              아직 프로젝트가 없습니다. 하나 만들어보세요.
+              No projects yet. Create your first one.
             </p>
           )}
         </div>

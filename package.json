@@ -3,13 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/dev-local.ps1",
+    "dev:direct": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
-    "@mediapipe/face_detection": "^0.4.1646424915",
+    "@mediapipe/tasks-vision": "^0.10.35",
+    "@tensorflow/tfjs-backend-cpu": "^4.9.0",
+    "@tensorflow/tfjs-core": "^4.9.0",
+    "@tensorflow/tfjs-tflite": "^0.0.1-alpha.10",
     "next": "14.2.3",
     "react": "18.2.0",
     "react-dom": "18.2.0"
@@ -20,6 +24,7 @@
     "@types/react-dom": "18.2.15",
     "eslint": "8.57.0",
     "eslint-config-next": "14.2.3",
+    "puppeteer-core": "^25.1.0",
     "typescript": "5.3.3"
   }
 }

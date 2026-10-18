@@ -27,7 +27,7 @@ export default function AnalysisRangeBar({
 
   return (
     <div className="range-bar">
-      <h4>분석 구간 설정</h4>
+      <h4>Analysis Range</h4>
       <div className="range-inputs">
         <input
           type="range"

@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Local caches and generated files
+tsconfig.tsbuildinfo
+*.pyc
+__pycache__/
+scripts/__pycache__/
+
+# Local-only media and experiment outputs
+/*.mp4
+/*.mov
+/artifacts/
+/scripts/sub1-diagnostics.json
+/test.mp4
+public/test.mp4
+face_5m.bin
+physmorphnet_infer.txt
+
+# Root-level duplicated model exports.
+# Keep browser-loaded models under public/models/.
+/model_core_v45_fp16.tflite
+/model_core_v62_fp16.tflite
+
+# Environment files
+.env
+.env*.local
+
+# Vercel local state
+.vercel/
